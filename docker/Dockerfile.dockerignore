@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.git
+.gitignore
+.env
+.venv
+src/bin/
+src/obj/
+tests/bin/
+tests/obj/

@@ -1,0 +1,30 @@
+services:
+  noaas:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: no-as-a-service
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          memory: 64M
+    networks:
+      - noaas-net
+
+networks:
+  noaas-net:
+    driver: bridge
