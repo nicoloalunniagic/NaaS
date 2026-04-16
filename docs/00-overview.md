@@ -4,7 +4,7 @@
 
 ## Obiettivo
 
-No-as-a-Service e una micro API .NET che restituisce rifiuti casuali, generici, creativi e talvolta esilaranti.
+No-as-a-Service è una micro API .NET che restituisce rifiuti casuali, generici, creativi e talvolta esilaranti.
 
 ## Stack
 
