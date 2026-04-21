@@ -6,10 +6,10 @@ on:
       - main
       - master
     paths:
-      - src/**
-      - docker/**
-      - infra/azure/**
-      - .github/workflows/deploy-azure.yml
+      - "src/**"
+      - "docker/**"
+      - "infra/azure/**"
+      - ".github/workflows/deploy-azure.yml"
   workflow_dispatch:
 
 # Non serve più id-token: write — niente OIDC
