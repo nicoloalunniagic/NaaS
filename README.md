@@ -15,8 +15,14 @@ Tiny ASP.NET Core API on .NET 10 with Docker support.
 ### Run locally
 
 ```bash
-dotnet restore src/NoAsAService.Api.csproj
-dotnet run --project src/NoAsAService.Api.csproj
+dotnet restore src/NoAsAService.Api/NoAsAService.Api.csproj
+dotnet run --project src/NoAsAService.Api/NoAsAService.Api.csproj
+```
+
+### Run tests
+
+```bash
+dotnet test src/tests/NoAsAService.Api.Tests/NoAsAService.Api.Tests.csproj -c Release
 ```
 
 ### Run with Docker
@@ -40,3 +46,9 @@ docker compose -f docker/docker-compose.yml up --build
 ## Documentation
 
 Operational docs are in [docs/README.md](docs/README.md).
+
+## Azure infrastructure
+
+Azure IaC is available in [infra/azure/README.md](infra/azure/README.md).
+
+Automated Azure deployment is available in [.github/workflows/deploy-azure.yml](.github/workflows/deploy-azure.yml).

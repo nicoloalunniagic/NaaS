@@ -21,6 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\NoAsAService.Api.csproj" />
+    <ProjectReference Include="..\..\NoAsAService.Api\NoAsAService.Api.csproj" />
   </ItemGroup>
 </Project>

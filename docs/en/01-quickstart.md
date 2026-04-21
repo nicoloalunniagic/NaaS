@@ -51,5 +51,5 @@ docker run --rm -p 8000:8000 noaas
 From the webapp folder:
 
 ```bash
-dotnet run --project src/NoAsAService.Api.csproj
+dotnet run --project src/NoAsAService.Api/NoAsAService.Api.csproj
 ```

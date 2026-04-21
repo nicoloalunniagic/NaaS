@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "westeurope"
+    },
+    "namePrefix": {
+      "value": "noaasdev01"
+    },
+    "containerImage": {
+      "value": "noaasdev01acr.azurecr.io/noaas:latest"
+    },
+    "containerCpu": {
+      "value": 0.5
+    },
+    "containerMemory": {
+      "value": "1.0Gi"
+    },
+    "minReplicas": {
+      "value": 1
+    },
+    "maxReplicas": {
+      "value": 3
+    }
+  }
+}
