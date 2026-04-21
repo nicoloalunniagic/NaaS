@@ -83,7 +83,7 @@ jobs:
       - name: Build and push Docker image via ACR Tasks
         shell: bash
         run: |
-          IMAGE_TAG="${GITHUB_SHA::12}"
+          IMAGE_TAG="${GITHUB_SHA:0:12}"
           IMAGE_URI="$ACR_LOGIN_SERVER/noaas:$IMAGE_TAG"
 
           # az acr build offloada build e push ad ACR — niente Docker daemon locale
