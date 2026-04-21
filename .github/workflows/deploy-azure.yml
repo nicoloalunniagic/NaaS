@@ -12,7 +12,6 @@ on:
       - ".github/workflows/deploy-azure.yml"
   workflow_dispatch:
 
-# Non serve più id-token: write — niente OIDC
 permissions:
   contents: read
 
@@ -22,7 +21,10 @@ env:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, azure, aca]  # label assegnate nell'entrypoint
+    runs-on:
+      - self-hosted
+      - azure
+      - aca
 
     steps:
       - name: Checkout
@@ -37,57 +39,30 @@ jobs:
       - name: Validate required repo variables
         shell: bash
         run: |
-          test -n "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            || (echo "Missing AZURE_RESOURCE_GROUP" && exit 1)
-          test -n "${{ vars.AZURE_LOCATION }}" \
-            || (echo "Missing AZURE_LOCATION" && exit 1)
-          test -n "${{ vars.AZURE_NAME_PREFIX }}" \
-            || (echo "Missing AZURE_NAME_PREFIX" && exit 1)
+          if [ -z "${{ vars.AZURE_RESOURCE_GROUP }}" ]; then
+            echo "Missing AZURE_RESOURCE_GROUP"
+            exit 1
+          fi
+          if [ -z "${{ vars.AZURE_LOCATION }}" ]; then
+            echo "Missing AZURE_LOCATION"
+            exit 1
+          fi
+          if [ -z "${{ vars.AZURE_NAME_PREFIX }}" ]; then
+            echo "Missing AZURE_NAME_PREFIX"
+            exit 1
+          fi
 
       - name: Create resource group
-        shell: bash
         run: |
           az group create \
             --name "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --location "${{ vars.AZURE_LOCATION }}"
 
-      - name: Deploy infra (bootstrap image)
-        id: infra_bootstrap
-        shell: bash
-        run: |
-          BOOTSTRAP_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-          DEPLOY_NAME="infra-bootstrap-${GITHUB_RUN_NUMBER}"
-
-          az deployment group create \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --template-file "$TEMPLATE_FILE" \
-            --parameters @"$PARAMS_FILE" \
-            --parameters location="${{ vars.AZURE_LOCATION }}" \
-            --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
-            --parameters containerImage="$BOOTSTRAP_IMAGE"
-
-          ACR_NAME=$(az deployment group show \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --query "properties.outputs.containerRegistryName.value" -o tsv)
-
-          ACR_LOGIN_SERVER=$(az deployment group show \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --query "properties.outputs.containerRegistryLoginServer.value" -o tsv)
-
-          echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
-          echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
-
       - name: Build and push Docker image via ACR Tasks
-        shell: bash
         run: |
-          IMAGE_TAG="${GITHUB_SHA:0:12}"
+          IMAGE_TAG="$(echo "$GITHUB_SHA" | cut -c1-12)"
           IMAGE_URI="$ACR_LOGIN_SERVER/noaas:$IMAGE_TAG"
 
-          # az acr build offloada build e push ad ACR — niente Docker daemon locale
-          # La MI deve avere AcrPush sull'ACR, Contributor sulla sub la copre già
           az acr build \
             --registry "$ACR_NAME" \
             --image "noaas:$IMAGE_TAG" \
@@ -95,28 +70,3 @@ jobs:
             .
 
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
-
-      - name: Deploy app with pushed image
-        id: deploy_app
-        shell: bash
-        run: |
-          DEPLOY_NAME="infra-app-${GITHUB_RUN_NUMBER}"
-
-          az deployment group create \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --template-file "$TEMPLATE_FILE" \
-            --parameters @"$PARAMS_FILE" \
-            --parameters location="${{ vars.AZURE_LOCATION }}" \
-            --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
-            --parameters containerImage="$IMAGE_URI"
-
-          APP_URL=$(az deployment group show \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --query "properties.outputs.containerAppUrl.value" -o tsv)
-
-          echo "app_url=$APP_URL" >> "$GITHUB_OUTPUT"
-
-      - name: Deployment summary
-        run: echo "Container App URL: ${{ steps.deploy_app.outputs.app_url }}"
