@@ -12,8 +12,8 @@ on:
       - .github/workflows/deploy-azure.yml
   workflow_dispatch:
 
+# Non serve più id-token: write — niente OIDC
 permissions:
-  id-token: write
   contents: read
 
 env:
@@ -22,25 +22,27 @@ env:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, azure, aca]  # label assegnate nell'entrypoint
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure login (Managed Identity)
+        run: az login --identity
+
+      - name: Set subscription
+        run: az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
 
       - name: Validate required repo variables
         shell: bash
         run: |
-          test -n "${{ vars.AZURE_RESOURCE_GROUP }}" || (echo "Missing repo variable AZURE_RESOURCE_GROUP" && exit 1)
-          test -n "${{ vars.AZURE_LOCATION }}" || (echo "Missing repo variable AZURE_LOCATION" && exit 1)
-          test -n "${{ vars.AZURE_NAME_PREFIX }}" || (echo "Missing repo variable AZURE_NAME_PREFIX" && exit 1)
+          test -n "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            || (echo "Missing AZURE_RESOURCE_GROUP" && exit 1)
+          test -n "${{ vars.AZURE_LOCATION }}" \
+            || (echo "Missing AZURE_LOCATION" && exit 1)
+          test -n "${{ vars.AZURE_NAME_PREFIX }}" \
+            || (echo "Missing AZURE_NAME_PREFIX" && exit 1)
 
       - name: Create resource group
         shell: bash
@@ -78,16 +80,19 @@ jobs:
           echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
           echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image via ACR Tasks
         shell: bash
         run: |
-          az acr login --name "$ACR_NAME"
-
           IMAGE_TAG="${GITHUB_SHA::12}"
           IMAGE_URI="$ACR_LOGIN_SERVER/noaas:$IMAGE_TAG"
 
-          docker build -f docker/Dockerfile -t "$IMAGE_URI" .
-          docker push "$IMAGE_URI"
+          # az acr build offloada build e push ad ACR — niente Docker daemon locale
+          # La MI deve avere AcrPush sull'ACR, Contributor sulla sub la copre già
+          az acr build \
+            --registry "$ACR_NAME" \
+            --image "noaas:$IMAGE_TAG" \
+            --file docker/Dockerfile \
+            .
 
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
 
@@ -114,5 +119,4 @@ jobs:
           echo "app_url=$APP_URL" >> "$GITHUB_OUTPUT"
 
       - name: Deployment summary
-        run: |
-          echo "Container App URL: ${{ steps.deploy_app.outputs.app_url }}"
+        run: echo "Container App URL: ${{ steps.deploy_app.outputs.app_url }}"
