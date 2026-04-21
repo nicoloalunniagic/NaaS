@@ -2,6 +2,15 @@
 
 This folder contains Infrastructure-as-Code for deploying the webapp on Azure using Bicep.
 
+## Structure
+
+- `main.bicep`: orchestration entry point
+- `foundation.bicep`: shared/base resources
+- `modules/containerRegistry.bicep`: ACR module
+- `modules/containerApp.bicep`: Azure Container App module
+- `modules/appInsights.bicep`: optional Application Insights module
+- `prod.bicepparam`: production parameter set
+
 ## What gets deployed
 
 - Azure Container Registry (ACR) Basic
@@ -26,6 +35,14 @@ az deployment group create \
   --resource-group rg-noaas-dev \
   --template-file infra/azure/main.bicep \
   --parameters @infra/azure/main.parameters.example.json
+```
+
+Or with Bicep parameter file:
+
+```bash
+az deployment group create \
+  --resource-group rg-noaas-prod \
+  --parameters infra/azure/prod.bicepparam
 ```
 
 ## Build and push image to ACR

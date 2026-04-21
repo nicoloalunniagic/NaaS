@@ -11,12 +11,12 @@ param containerImage string
 
 @description('CPU cores allocated to the container app')
 @allowed([
-  0.25
-  0.5
-  1.0
-  2.0
+  '0.25'
+  '0.5'
+  '1.0'
+  '2.0'
 ])
-param containerCpu float = 0.5
+param containerCpu string = '0.5'
 
 @description('Memory allocated to the container app')
 @allowed([
@@ -37,49 +37,35 @@ param minReplicas int = 1
 @maxValue(20)
 param maxReplicas int = 3
 
+@description('Deploy Application Insights in addition to Log Analytics')
+param deployAppInsights bool = false
+
 var tags = {
   app: 'no-as-a-service'
   managedBy: 'bicep'
 }
 
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: '${namePrefix}-law'
-  location: location
-  tags: tags
-  properties: {
-    retentionInDays: 30
-    sku: {
-      name: 'PerGB2018'
-    }
+module foundation './foundation.bicep' = {
+  name: 'foundation'
+  params: {
+    location: location
+    namePrefix: namePrefix
+    tags: tags
+    deployAppInsights: deployAppInsights
   }
 }
 
-resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+module containerRegistry './modules/containerRegistry.bicep' = {
+  name: 'containerRegistry'
+  params: {
+    name: '${namePrefix}acr'
+    location: location
+    tags: tags
+  }
+}
+
+resource containerRegistryExisting 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: '${namePrefix}acr'
-  location: location
-  tags: tags
-  sku: {
-    name: 'Basic'
-  }
-  properties: {
-    adminUserEnabled: false
-    publicNetworkAccess: 'Enabled'
-  }
-}
-
-resource managedEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
-  name: '${namePrefix}-cae'
-  location: location
-  tags: tags
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logAnalytics.properties.customerId
-        sharedKey: logAnalytics.listKeys().primarySharedKey
-      }
-    }
-  }
 }
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -89,8 +75,8 @@ resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@
 }
 
 resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerRegistry.id, userAssignedIdentity.id, 'AcrPullRole')
-  scope: containerRegistry
+  name: guid(containerRegistryExisting.id, userAssignedIdentity.id, 'AcrPullRole')
+  scope: containerRegistryExisting
   properties: {
     principalId: userAssignedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
@@ -98,75 +84,29 @@ resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
   }
 }
 
-resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
-  name: '${namePrefix}-api'
-  location: location
-  tags: tags
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${userAssignedIdentity.id}': {}
-    }
-  }
-  properties: {
-    managedEnvironmentId: managedEnvironment.id
-    configuration: {
-      ingress: {
-        external: true
-        targetPort: 8000
-        transport: 'auto'
-      }
-      registries: [
-        {
-          server: containerRegistry.properties.loginServer
-          identity: userAssignedIdentity.id
-        }
-      ]
-    }
-    template: {
-      containers: [
-        {
-          name: 'noaas'
-          image: containerImage
-          resources: {
-            cpu: containerCpu
-            memory: containerMemory
-          }
-          probes: [
-            {
-              type: 'Liveness'
-              httpGet: {
-                path: '/'
-                port: 8000
-              }
-              initialDelaySeconds: 10
-              periodSeconds: 30
-            }
-            {
-              type: 'Readiness'
-              httpGet: {
-                path: '/'
-                port: 8000
-              }
-              initialDelaySeconds: 10
-              periodSeconds: 10
-            }
-          ]
-        }
-      ]
-      scale: {
-        minReplicas: minReplicas
-        maxReplicas: maxReplicas
-      }
-    }
+module containerApp './modules/containerApp.bicep' = {
+  name: 'containerApp'
+  params: {
+    name: '${namePrefix}-api'
+    location: location
+    tags: tags
+    managedEnvironmentId: foundation.outputs.managedEnvironmentId
+    containerImage: containerImage
+    containerCpu: containerCpu
+    containerMemory: containerMemory
+    minReplicas: minReplicas
+    maxReplicas: maxReplicas
+    acrLoginServer: containerRegistry.outputs.loginServer
+    userAssignedIdentityId: userAssignedIdentity.id
   }
   dependsOn: [
     acrPullRoleAssignment
   ]
 }
 
-output containerRegistryName string = containerRegistry.name
-output containerRegistryLoginServer string = containerRegistry.properties.loginServer
-output managedEnvironmentName string = managedEnvironment.name
-output containerAppName string = containerApp.name
-output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
+output containerRegistryName string = containerRegistry.outputs.name
+output containerRegistryLoginServer string = containerRegistry.outputs.loginServer
+output managedEnvironmentName string = foundation.outputs.managedEnvironmentName
+output containerAppName string = containerApp.outputs.name
+output containerAppUrl string = containerApp.outputs.url
+output appInsightsName string = foundation.outputs.appInsightsName

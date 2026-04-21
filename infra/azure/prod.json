@@ -6,10 +6,10 @@
       "value": "westeurope"
     },
     "namePrefix": {
-      "value": "noaasdev01"
+      "value": "noaasprod01"
     },
     "containerImage": {
-      "value": "noaasdev01acr.azurecr.io/noaas:latest"
+      "value": "noaasprod01acr.azurecr.io/noaas:latest"
     },
     "containerCpu": {
       "value": "0.5"
@@ -18,10 +18,13 @@
       "value": "1.0Gi"
     },
     "minReplicas": {
-      "value": 1
+      "value": 2
     },
     "maxReplicas": {
-      "value": 3
+      "value": 5
+    },
+    "deployAppInsights": {
+      "value": true
     }
   }
 }
