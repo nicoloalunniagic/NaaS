@@ -18,9 +18,13 @@ No-as-a-Service is a tiny .NET API that returns random, generic, creative, and s
 ```text
 webapp/
   src/
-    NoAsAService.Api.csproj
-    Program.cs
-    static/
+    NoAsAService.Api/
+      NoAsAService.Api.csproj
+      Program.cs
+      static/
+    tests/
+      NoAsAService.Api.Tests/
+        NoAsAService.Api.Tests.csproj
   docker/
     Dockerfile
     docker-compose.yml

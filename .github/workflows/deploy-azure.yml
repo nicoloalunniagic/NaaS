@@ -14,10 +14,11 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   TEMPLATE_FILE: infra/azure/main.bicep
-  PARAMS_FILE: infra/azure/main.parameters.example.json
+  PARAMS_FILE: infra/azure/prod.bicepparam
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -31,8 +32,12 @@ jobs:
       - name: Validate required repo variables
         shell: bash
         run: |
-          if [ -z "${{ vars.MI_CLIENT_ID }}" ]; then
-            echo "Missing MI_CLIENT_ID"
+          if [ -z "${{ vars.AZURE_CLIENT_ID }}" ]; then
+            echo "Missing AZURE_CLIENT_ID"
+            exit 1
+          fi
+          if [ -z "${{ vars.AZURE_TENANT_ID }}" ]; then
+            echo "Missing AZURE_TENANT_ID"
             exit 1
           fi
           if [ -z "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]; then
@@ -52,8 +57,12 @@ jobs:
             exit 1
           fi
 
-      - name: Azure login (Managed Identity)
-        run: az login --identity --client-id "${{ vars.MI_CLIENT_ID }}"
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Set subscription
         run: az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
@@ -75,7 +84,7 @@ jobs:
             --name "$DEPLOY_NAME" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --template-file "$TEMPLATE_FILE" \
-            --parameters @"$PARAMS_FILE" \
+            --parameters "$PARAMS_FILE" \
             --parameters location="${{ vars.AZURE_LOCATION }}" \
             --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
             --parameters containerImage="$BOOTSTRAP_IMAGE" \
@@ -128,7 +137,7 @@ jobs:
             --name "$DEPLOY_NAME" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --template-file "$TEMPLATE_FILE" \
-            --parameters @"$PARAMS_FILE" \
+            --parameters "$PARAMS_FILE" \
             --parameters location="${{ vars.AZURE_LOCATION }}" \
             --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
             --parameters containerImage="$IMAGE_URI" \

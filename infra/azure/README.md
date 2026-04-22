@@ -62,28 +62,29 @@ Then redeploy Bicep with `containerImage` pointing to your pushed tag.
 
 Workflow file: [.github/workflows/deploy-azure.yml](../../.github/workflows/deploy-azure.yml)
 
-The workflow uses Azure Managed Identity (OIDC workload identity federation) to authenticate to Azure. It runs on a GitHub-hosted runner or self-hosted runner with Azure Managed Identity support.
+The workflow uses GitHub OIDC federation via `azure/login@v2` to authenticate to Azure from `ubuntu-latest`.
 
 Required repository variables (not secrets):
 
-- `MI_CLIENT_ID`: Client ID of the Managed Identity
+- `AZURE_CLIENT_ID`: Client ID of the Entra application or user-assigned managed identity bound to the federated credential
+- `AZURE_TENANT_ID`: Azure Entra tenant ID
 - `AZURE_SUBSCRIPTION_ID`: Target Azure subscription
 - `AZURE_RESOURCE_GROUP`: Target resource group name
 - `AZURE_LOCATION`: Azure region (e.g., westeurope, eastus)
 - `AZURE_NAME_PREFIX`: Prefix for Azure resources (lowercase, 3-12 chars)
 
-Required Azure RBAC for the Managed Identity:
+Required Azure RBAC for the federated identity:
 
 - `Contributor` on the target resource group (to create RG and deploy Bicep)
 - `AcrPush` on the target Azure Container Registry (to push images)
 
-Optional: if the runner is not already assigned the Managed Identity, set up workload identity federation by storing OIDC issuer/subject in Azure AD and adjusting login to use `azure/login@v2`.
+You also need a federated credential in Azure Entra ID that trusts the GitHub repository/branch or environment running this workflow.
 
 The workflow does the following:
 
 - Logs in to Azure with OIDC (`azure/login`)
 - Creates the resource group if needed
-- Deploys Bicep with a temporary bootstrap image
+- Deploys `infra/azure/prod.bicepparam` with a temporary bootstrap image
 - Builds and pushes your app image to ACR with tag from commit SHA
 - Redeploys Bicep with the pushed image
 

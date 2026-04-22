@@ -18,10 +18,10 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Useful Endpoints
 
-- Home: http://localhost:8000/
-- Reject: http://localhost:8000/reject
-- Swagger UI: http://localhost:8000/docs
-- OpenAPI JSON: http://localhost:8000/openapi/v1.json
+- Home: <http://localhost:8000/>
+- Reject: <http://localhost:8000/reject>
+- Swagger UI: <http://localhost:8000/docs>
+- OpenAPI JSON: <http://localhost:8000/openapi/v1.json>
 
 ## Stop
 
