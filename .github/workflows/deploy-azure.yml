@@ -89,7 +89,7 @@ jobs:
         shell: bash
         run: |
           CONTAINER_APP_URL="${{ steps.deploy_app.outputs.containerAppUrl }}"
-          BASE_URL="https://$CONTAINER_APP_URL"
+          BASE_URL="$CONTAINER_APP_URL"
 
           wait_for_200() {
             local url="$1"
