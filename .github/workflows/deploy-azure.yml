@@ -16,11 +16,6 @@ permissions:
   contents: read
   id-token: write
 
-env:
-  TEMPLATE_FILE: infra/azure/main.bicep
-  PARAMS_FILE: infra/azure/prod.bicepparam
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -30,33 +25,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Validate required repo variables
+      - name: Resolve parameters file
+        id: params
         shell: bash
         run: |
-          if [ -z "${{ vars.AZURE_CLIENT_ID }}" ]; then
-            echo "Missing AZURE_CLIENT_ID"
-            exit 1
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            PARAMS_FILE="infra/azure/prod.bicepparam"
+          else
+            PARAMS_FILE="infra/azure/dev.bicepparam"
           fi
-          if [ -z "${{ vars.AZURE_TENANT_ID }}" ]; then
-            echo "Missing AZURE_TENANT_ID"
-            exit 1
-          fi
-          if [ -z "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]; then
-            echo "Missing AZURE_SUBSCRIPTION_ID"
-            exit 1
-          fi
-          if [ -z "${{ vars.AZURE_RESOURCE_GROUP }}" ]; then
-            echo "Missing AZURE_RESOURCE_GROUP"
-            exit 1
-          fi
-          if [ -z "${{ vars.AZURE_LOCATION }}" ]; then
-            echo "Missing AZURE_LOCATION"
-            exit 1
-          fi
-          if [ -z "${{ vars.AZURE_NAME_PREFIX }}" ]; then
-            echo "Missing AZURE_NAME_PREFIX"
-            exit 1
-          fi
+          echo "params_file=$PARAMS_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -65,88 +43,26 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Set subscription
-        run: az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
-
       - name: Create resource group
+        shell: bash
         run: |
           az group create \
             --name "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --location "${{ vars.AZURE_LOCATION }}"
 
-      - name: Deploy infra (bootstrap image)
-        id: infra_bootstrap
-        shell: bash
-        run: |
-          BOOTSTRAP_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-          DEPLOY_NAME="infra-bootstrap-${GITHUB_RUN_NUMBER}"
-
-          az deployment group create \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --template-file "$TEMPLATE_FILE" \
-            --parameters "$PARAMS_FILE" \
-            --parameters location="${{ vars.AZURE_LOCATION }}" \
-            --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
-            --parameters containerImage="$BOOTSTRAP_IMAGE" \
-            --parameters minReplicas=0
-
-          ACR_NAME=$(az deployment group show \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --query "properties.outputs.containerRegistryName.value" -o tsv)
-
-          ACR_LOGIN_SERVER=$(az deployment group show \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --query "properties.outputs.containerRegistryLoginServer.value" -o tsv)
-
-          CONTAINER_APP_NAME=$(az deployment group show \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --query "properties.outputs.containerAppName.value" -o tsv)
-
-          CONTAINER_APP_URL=$(az deployment group show \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --query "properties.outputs.containerAppUrl.value" -o tsv)
-
-          echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
-          echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
-          echo "CONTAINER_APP_NAME=$CONTAINER_APP_NAME" >> "$GITHUB_ENV"
-          echo "CONTAINER_APP_URL=$CONTAINER_APP_URL" >> "$GITHUB_ENV"
-
-      - name: Build and push Docker image via ACR Tasks
-        run: |
-          IMAGE_TAG="$(echo "$GITHUB_SHA" | cut -c1-12)"
-          IMAGE_URI="$ACR_LOGIN_SERVER/naas:$IMAGE_TAG"
-
-          az acr build \
-            --registry "$ACR_NAME" \
-            --image "naas:$IMAGE_TAG" \
-            --file docker/Dockerfile \
-            .
-
-          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
-
-      - name: Deploy app revision (new image)
-        shell: bash
-        run: |
-          DEPLOY_NAME="app-release-${GITHUB_RUN_NUMBER}"
-
-          az deployment group create \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --template-file "$TEMPLATE_FILE" \
-            --parameters "$PARAMS_FILE" \
-            --parameters location="${{ vars.AZURE_LOCATION }}" \
-            --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
-            --parameters containerImage="$IMAGE_URI" \
-            --parameters minReplicas=0
+      - name: Deploy infrastructure
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}
+          template: infra/azure/main.bicep
+          parameters: ${{ steps.params.outputs.params_file }}
+          deploymentMode: Incremental
 
       - name: Smoke test deployed app
         shell: bash
         run: |
+          CONTAINER_APP_URL="${{ vars.CONTAINER_APP_URL }}"
           BASE_URL="https://$CONTAINER_APP_URL"
 
           wait_for_200() {
@@ -178,8 +94,6 @@ jobs:
             echo "### Azure deployment completed"
             echo ""
             echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
-            echo "- ACR: $ACR_NAME"
-            echo "- Image: $IMAGE_URI"
-            echo "- Container App: $CONTAINER_APP_NAME"
-            echo "- URL: https://$CONTAINER_APP_URL"
+            echo "- Params file: ${{ steps.params.outputs.params_file }}"
+            echo "- URL: https://${{ vars.CONTAINER_APP_URL }}"
           } >> "$GITHUB_STEP_SUMMARY"
