@@ -50,13 +50,44 @@ jobs:
             --name "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --location "${{ vars.AZURE_LOCATION }}"
 
-      - name: Deploy infrastructure
+      - name: Deploy infra (bootstrap image)
+        id: infra_bootstrap
         uses: azure/arm-deploy@v2
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}
           template: infra/azure/main.bicep
-          parameters: ${{ steps.params.outputs.params_file }}
+          parameters: >
+            ${{ steps.params.outputs.params_file }}
+            containerImage=mcr.microsoft.com/azuredocs/containerapps-helloworld:latest
+            minReplicas=0
+          deploymentMode: Incremental
+
+      - name: Build and push Docker image via ACR Tasks
+        shell: bash
+        run: |
+          ACR_NAME="${{ steps.infra_bootstrap.outputs.containerRegistryName }}"
+          ACR_LOGIN_SERVER="${{ steps.infra_bootstrap.outputs.containerRegistryLoginServer }}"
+          IMAGE_TAG="$(echo "$GITHUB_SHA" | cut -c1-12)"
+          IMAGE_URI="$ACR_LOGIN_SERVER/naas:$IMAGE_TAG"
+
+          az acr build \
+            --registry "$ACR_NAME" \
+            --image "naas:$IMAGE_TAG" \
+            --file docker/Dockerfile \
+            .
+
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Deploy app with pushed image
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}
+          template: infra/azure/main.bicep
+          parameters: >
+            ${{ steps.params.outputs.params_file }}
+            containerImage=${{ env.IMAGE_URI }}
           deploymentMode: Incremental
 
       - name: Smoke test deployed app
