@@ -38,7 +38,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
     template: {
       containers: [
         {
-          name: 'noaas'
+          name: 'naas'
           image: containerImage
           resources: {
             cpu: json(containerCpu)

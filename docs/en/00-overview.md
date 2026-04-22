@@ -36,5 +36,5 @@ webapp/
 
 ## Important Notes
 
-- noaas in compose is only the Docker service name
+- naas in compose is only the Docker service name
 - Exposed port is 8000

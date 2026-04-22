@@ -36,5 +36,5 @@ webapp/
 
 ## Note importanti
 
-- Il nome noaas nel compose e solo il nome del servizio Docker
+- Il nome naas nel compose e solo il nome del servizio Docker
 - La porta esposta e 8000

@@ -6,7 +6,7 @@ param location string = resourceGroup().location
 @maxLength(12)
 param namePrefix string
 
-@description('Container image to deploy in Azure Container Apps, for example myregistry.azurecr.io/noaas:latest')
+@description('Container image to deploy in Azure Container Apps, for example myregistry.azurecr.io/naas:latest')
 param containerImage string
 
 @description('CPU cores allocated to the container app')

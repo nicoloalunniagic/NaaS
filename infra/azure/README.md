@@ -29,10 +29,10 @@ This folder contains Infrastructure-as-Code for deploying the webapp on Azure us
 ## Deploy infrastructure
 
 ```bash
-az group create --name rg-noaas-dev --location westeurope
+az group create --name rg-naas-dev --location westeurope
 
 az deployment group create \
-  --resource-group rg-noaas-dev \
+  --resource-group rg-naas-dev \
   --template-file infra/azure/main.bicep \
   --parameters @infra/azure/main.parameters.example.json
 ```
@@ -41,7 +41,7 @@ Or with Bicep parameter file:
 
 ```bash
 az deployment group create \
-  --resource-group rg-noaas-prod \
+  --resource-group rg-naas-prod \
   --parameters infra/azure/prod.bicepparam
 ```
 
@@ -52,8 +52,8 @@ Use the output `containerRegistryLoginServer` from the deployment.
 ```bash
 az acr login --name <ACR_NAME>
 
-docker build -f docker/Dockerfile -t <ACR_LOGIN_SERVER>/noaas:latest .
-docker push <ACR_LOGIN_SERVER>/noaas:latest
+docker build -f docker/Dockerfile -t <ACR_LOGIN_SERVER>/naas:latest .
+docker push <ACR_LOGIN_SERVER>/naas:latest
 ```
 
 Then redeploy Bicep with `containerImage` pointing to your pushed tag.

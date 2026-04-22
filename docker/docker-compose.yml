@@ -1,5 +1,5 @@
 services:
-  noaas:
+  naas:
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -23,8 +23,8 @@ services:
         reservations:
           memory: 64M
     networks:
-      - noaas-net
+      - naas-net
 
 networks:
-  noaas-net:
+  naas-net:
     driver: bridge

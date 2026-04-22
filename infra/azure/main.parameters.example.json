@@ -6,10 +6,10 @@
       "value": "westeurope"
     },
     "namePrefix": {
-      "value": "noaasdev01"
+      "value": "naasdev01"
     },
     "containerImage": {
-      "value": "noaasdev01acr.azurecr.io/noaas:latest"
+      "value": "naasdev01acr.azurecr.io/naas:latest"
     },
     "containerCpu": {
       "value": "0.5"

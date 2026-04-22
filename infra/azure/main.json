@@ -27,7 +27,7 @@
     "containerImage": {
       "type": "string",
       "metadata": {
-        "description": "Container image to deploy in Azure Container Apps, for example myregistry.azurecr.io/noaas:latest"
+        "description": "Container image to deploy in Azure Container Apps, for example myregistry.azurecr.io/naas:latest"
       }
     },
     "containerCpu": {
@@ -490,7 +490,7 @@
                 "template": {
                   "containers": [
                     {
-                      "name": "noaas",
+                      "name": "naas",
                       "image": "[parameters('containerImage')]",
                       "resources": {
                         "cpu": "[json(parameters('containerCpu'))]",

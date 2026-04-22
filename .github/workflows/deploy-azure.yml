@@ -109,11 +109,11 @@ jobs:
       - name: Build and push Docker image via ACR Tasks
         run: |
           IMAGE_TAG="$(echo "$GITHUB_SHA" | cut -c1-12)"
-          IMAGE_URI="$ACR_LOGIN_SERVER/noaas:$IMAGE_TAG"
+          IMAGE_URI="$ACR_LOGIN_SERVER/naas:$IMAGE_TAG"
 
           az acr build \
             --registry "$ACR_NAME" \
-            --image "noaas:$IMAGE_TAG" \
+            --image "naas:$IMAGE_TAG" \
             --file docker/Dockerfile \
             .
 

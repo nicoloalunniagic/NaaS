@@ -42,8 +42,8 @@ docker compose -f docker/docker-compose.yml down
 From the webapp folder:
 
 ```bash
-docker build -f docker/Dockerfile -t noaas .
-docker run --rm -p 8000:8000 noaas
+docker build -f docker/Dockerfile -t naas .
+docker run --rm -p 8000:8000 naas
 ```
 
 ## Run Locally without Docker
