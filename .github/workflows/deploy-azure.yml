@@ -72,7 +72,8 @@ jobs:
             --parameters @"$PARAMS_FILE" \
             --parameters location="${{ vars.AZURE_LOCATION }}" \
             --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
-            --parameters containerImage="$BOOTSTRAP_IMAGE"
+            --parameters containerImage="$BOOTSTRAP_IMAGE" \
+            --parameters minReplicas=0
 
           ACR_NAME=$(az deployment group show \
             --name "$DEPLOY_NAME" \
