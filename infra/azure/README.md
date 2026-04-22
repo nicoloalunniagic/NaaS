@@ -62,22 +62,22 @@ Then redeploy Bicep with `containerImage` pointing to your pushed tag.
 
 Workflow file: [.github/workflows/deploy-azure.yml](../../.github/workflows/deploy-azure.yml)
 
-Required repository secrets:
+The workflow uses Azure Managed Identity (OIDC workload identity federation) to authenticate to Azure. It runs on a GitHub-hosted runner or self-hosted runner with Azure Managed Identity support.
 
-- `AZURE_CLIENT_ID`
-- `AZURE_TENANT_ID`
-- `AZURE_SUBSCRIPTION_ID`
+Required repository variables (not secrets):
 
-Required Azure RBAC for the GitHub identity:
+- `MI_CLIENT_ID`: Client ID of the Managed Identity
+- `AZURE_SUBSCRIPTION_ID`: Target Azure subscription
+- `AZURE_RESOURCE_GROUP`: Target resource group name
+- `AZURE_LOCATION`: Azure region (e.g., westeurope, eastus)
+- `AZURE_NAME_PREFIX`: Prefix for Azure resources (lowercase, 3-12 chars)
 
-- `Contributor` on the target resource group
-- `AcrPush` on the target Azure Container Registry
+Required Azure RBAC for the Managed Identity:
 
-Required repository variables:
+- `Contributor` on the target resource group (to create RG and deploy Bicep)
+- `AcrPush` on the target Azure Container Registry (to push images)
 
-- `AZURE_RESOURCE_GROUP`
-- `AZURE_LOCATION`
-- `AZURE_NAME_PREFIX`
+Optional: if the runner is not already assigned the Managed Identity, set up workload identity federation by storing OIDC issuer/subject in Azure AD and adjusting login to use `azure/login@v2`.
 
 The workflow does the following:
 
