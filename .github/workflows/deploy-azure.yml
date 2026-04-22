@@ -28,15 +28,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Azure login (Managed Identity)
-        run: az login --identity --client-id "${{ vars.MI_CLIENT_ID }}"
-
-      - name: Set subscription
-        run: az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
-
       - name: Validate required repo variables
         shell: bash
         run: |
+          if [ -z "${{ vars.MI_CLIENT_ID }}" ]; then
+            echo "Missing MI_CLIENT_ID"
+            exit 1
+          fi
+          if [ -z "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]; then
+            echo "Missing AZURE_SUBSCRIPTION_ID"
+            exit 1
+          fi
           if [ -z "${{ vars.AZURE_RESOURCE_GROUP }}" ]; then
             echo "Missing AZURE_RESOURCE_GROUP"
             exit 1
@@ -49,6 +51,12 @@ jobs:
             echo "Missing AZURE_NAME_PREFIX"
             exit 1
           fi
+
+      - name: Azure login (Managed Identity)
+        run: az login --identity --client-id "${{ vars.MI_CLIENT_ID }}"
+
+      - name: Set subscription
+        run: az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
 
       - name: Create resource group
         run: |
@@ -83,8 +91,20 @@ jobs:
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --query "properties.outputs.containerRegistryLoginServer.value" -o tsv)
 
+          CONTAINER_APP_NAME=$(az deployment group show \
+            --name "$DEPLOY_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query "properties.outputs.containerAppName.value" -o tsv)
+
+          CONTAINER_APP_URL=$(az deployment group show \
+            --name "$DEPLOY_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query "properties.outputs.containerAppUrl.value" -o tsv)
+
           echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
           echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
+          echo "CONTAINER_APP_NAME=$CONTAINER_APP_NAME" >> "$GITHUB_ENV"
+          echo "CONTAINER_APP_URL=$CONTAINER_APP_URL" >> "$GITHUB_ENV"
 
       - name: Build and push Docker image via ACR Tasks
         run: |
@@ -98,3 +118,58 @@ jobs:
             .
 
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Deploy app revision (new image)
+        shell: bash
+        run: |
+          DEPLOY_NAME="app-release-${GITHUB_RUN_NUMBER}"
+
+          az deployment group create \
+            --name "$DEPLOY_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file "$TEMPLATE_FILE" \
+            --parameters @"$PARAMS_FILE" \
+            --parameters location="${{ vars.AZURE_LOCATION }}" \
+            --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
+            --parameters containerImage="$IMAGE_URI" \
+            --parameters minReplicas=0
+
+      - name: Smoke test deployed app
+        shell: bash
+        run: |
+          BASE_URL="https://$CONTAINER_APP_URL"
+
+          wait_for_200() {
+            local url="$1"
+            local name="$2"
+
+            for attempt in {1..12}; do
+              code=$(curl -sS -o /dev/null -w "%{http_code}" "$url" || true)
+              if [ "$code" = "200" ]; then
+                echo "Smoke check ok: $name ($url)"
+                return 0
+              fi
+
+              echo "Attempt $attempt/12: $name returned HTTP $code"
+              sleep 10
+            done
+
+            echo "Smoke check failed: $name ($url) did not return HTTP 200"
+            return 1
+          }
+
+          wait_for_200 "$BASE_URL/" "root endpoint"
+          wait_for_200 "$BASE_URL/openapi/v1.json" "openapi endpoint"
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          {
+            echo "### Azure deployment completed"
+            echo ""
+            echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
+            echo "- ACR: $ACR_NAME"
+            echo "- Image: $IMAGE_URI"
+            echo "- Container App: $CONTAINER_APP_NAME"
+            echo "- URL: https://$CONTAINER_APP_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
