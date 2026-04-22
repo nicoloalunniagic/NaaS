@@ -22,10 +22,7 @@ env:
 
 jobs:
   deploy:
-    runs-on:
-      - self-hosted
-      - azure
-      - aca
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
