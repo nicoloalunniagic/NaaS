@@ -1,20 +1,14 @@
 name: deploy-azure
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - "src/**"
-      - "docker/**"
-      - "infra/azure/**"
-      - ".github/workflows/deploy-azure.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
@@ -80,6 +74,7 @@ jobs:
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
 
       - name: Deploy app with pushed image
+        id: deploy_app
         uses: azure/arm-deploy@v2
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -93,7 +88,7 @@ jobs:
       - name: Smoke test deployed app
         shell: bash
         run: |
-          CONTAINER_APP_URL="${{ vars.CONTAINER_APP_URL }}"
+          CONTAINER_APP_URL="${{ steps.deploy_app.outputs.containerAppUrl }}"
           BASE_URL="https://$CONTAINER_APP_URL"
 
           wait_for_200() {
@@ -126,5 +121,5 @@ jobs:
             echo ""
             echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
             echo "- Params file: ${{ steps.params.outputs.params_file }}"
-            echo "- URL: https://${{ vars.CONTAINER_APP_URL }}"
+            echo "- URL: ${{ steps.deploy_app.outputs.containerAppUrl }}"
           } >> "$GITHUB_STEP_SUMMARY"
