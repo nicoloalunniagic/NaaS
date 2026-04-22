@@ -18,6 +18,7 @@ permissions:
 env:
   TEMPLATE_FILE: infra/azure/main.bicep
   PARAMS_FILE: infra/azure/main.parameters.example.json
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
@@ -28,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Azure login (Managed Identity)
         run: az login --identity --client-id "${{ vars.MI_CLIENT_ID }}"
@@ -100,29 +101,3 @@ jobs:
             .
 
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
-
-      - name: Deploy app with pushed image
-        id: deploy_app
-        shell: bash
-        run: |
-          DEPLOY_NAME="infra-app-${GITHUB_RUN_NUMBER}"
-
-          az deployment group create \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --template-file "$TEMPLATE_FILE" \
-            --parameters @"$PARAMS_FILE" \
-            --parameters location="${{ vars.AZURE_LOCATION }}" \
-            --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
-            --parameters containerImage="$IMAGE_URI"
-
-          APP_URL=$(az deployment group show \
-            --name "$DEPLOY_NAME" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --query "properties.outputs.containerAppUrl.value" -o tsv)
-
-          echo "app_url=$APP_URL" >> "$GITHUB_OUTPUT"
-
-      - name: Deployment summary
-        run: |
-          echo "Container App URL: ${{ steps.deploy_app.outputs.app_url }}"
