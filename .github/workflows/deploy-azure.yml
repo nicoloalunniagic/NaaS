@@ -58,6 +58,35 @@ jobs:
             --name "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --location "${{ vars.AZURE_LOCATION }}"
 
+      - name: Deploy infra (bootstrap image)
+        id: infra_bootstrap
+        shell: bash
+        run: |
+          BOOTSTRAP_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+          DEPLOY_NAME="infra-bootstrap-${GITHUB_RUN_NUMBER}"
+
+          az deployment group create \
+            --name "$DEPLOY_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file "$TEMPLATE_FILE" \
+            --parameters @"$PARAMS_FILE" \
+            --parameters location="${{ vars.AZURE_LOCATION }}" \
+            --parameters namePrefix="${{ vars.AZURE_NAME_PREFIX }}" \
+            --parameters containerImage="$BOOTSTRAP_IMAGE"
+
+          ACR_NAME=$(az deployment group show \
+            --name "$DEPLOY_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query "properties.outputs.containerRegistryName.value" -o tsv)
+
+          ACR_LOGIN_SERVER=$(az deployment group show \
+            --name "$DEPLOY_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query "properties.outputs.containerRegistryLoginServer.value" -o tsv)
+
+          echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
+          echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
+
       - name: Build and push Docker image via ACR Tasks
         run: |
           IMAGE_TAG="$(echo "$GITHUB_SHA" | cut -c1-12)"
