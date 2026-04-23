@@ -6,7 +6,7 @@
 
 - Docker Desktop installato e in esecuzione
 - Porta 8000 libera
-- SDK .NET 10 (preview) installato solo se vuoi eseguire il progetto fuori da Docker
+- SDK .NET 10 (preview) installato, solo se vuoi eseguire il progetto fuori da Docker
 
 ## Avvio rapido
 

@@ -1,12 +1,12 @@
 # Docker Quickstart
 
-> Versione italiana: [Quickstart Docker](../01-quickstart.md)
+> Italian version: [Quickstart Docker](../01-quickstart.md)
 
 ## Prerequisites
 
 - Docker Desktop installed and running
 - Port 8000 available
-- .NET 10 SDK (preview) installed only if you want to run the project outside Docker
+- .NET 10 SDK (preview), only if you want to run the project outside Docker
 
 ## Quick Start
 

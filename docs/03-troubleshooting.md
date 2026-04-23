@@ -2,9 +2,9 @@
 
 > English version: [Troubleshooting](./en/03-troubleshooting.md)
 
-## La porta 8000 e occupata
+## La porta 8000 e' occupata
 
-Sintomo: errore bind o porta gia in uso.
+Sintomo: errore di bind o porta gia' in uso.
 
 Soluzioni:
 
@@ -32,8 +32,8 @@ Verifica anche:
 
 ## Modifiche al codice non visibili
 
-Con la configurazione attuale il codice viene copiato in build image.
-Dopo modifiche a src, ricostruisci:
+Con la configurazione attuale il codice viene copiato nell'immagine durante la build.
+Dopo modifiche a `src`, ricostruisci:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build
@@ -42,7 +42,7 @@ docker compose -f docker/docker-compose.yml up --build
 ## Il comando dotnet non esiste in locale
 
 Installa .NET 10 SDK (preview) se vuoi eseguire l'app fuori da Docker.
-Se usi solo Docker, non e necessario averlo installato sulla macchina host.
+Se usi solo Docker, non e' necessario averlo installato sulla macchina host.
 
 ## Errore durante restore o publish
 

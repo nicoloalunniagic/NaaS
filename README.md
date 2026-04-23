@@ -38,17 +38,17 @@ docker compose -f docker/docker-compose.yml up --build
 - OpenAPI: `http://localhost:8000/openapi/v1.json`
 - Swagger UI: `http://localhost:8000/docs`
 
-## Repository essentials added
+## Repository essentials
 
 - `.gitignore` for .NET and local tooling artifacts
 - `.github/workflows/ci.yml` for GitHub Actions
 
 ## Documentation
 
-Operational docs are in [docs/README.md](docs/README.md).
+Operational documentation and the editorial pre-merge checklist are available in [docs/README.md](docs/README.md).
 
 ## Azure infrastructure
 
-Azure IaC is available in [infra/azure/README.md](infra/azure/README.md).
+Azure IaC documentation is available in [infra/azure/README.md](infra/azure/README.md).
 
 Automated Azure deployment is available in [.github/workflows/deploy-azure.yml](.github/workflows/deploy-azure.yml).

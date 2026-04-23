@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> Versione italiana: [Troubleshooting](../03-troubleshooting.md)
+> Italian version: [Troubleshooting](../03-troubleshooting.md)
 
 ## Port 8000 is already in use
 

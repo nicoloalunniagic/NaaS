@@ -1,6 +1,6 @@
 # Project Overview
 
-> Versione italiana: [Overview Progetto](../00-overview.md)
+> Italian version: [Overview Progetto](../00-overview.md)
 
 ## Goal
 
@@ -34,8 +34,8 @@ webapp/
 
 ## Service Behavior
 
-- Root endpoint with basic service info
-- Reject endpoint returning approved=false and a random reason
+- Root endpoint with basic service information
+- Reject endpoint that returns approved=false and a random reason
 - Swagger UI documentation exposed at /docs
 
 ## Important Notes

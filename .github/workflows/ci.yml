@@ -1,6 +1,7 @@
 name: ci
 
 on:
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -10,6 +11,94 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  docs-link-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate markdown internal links
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = "$PWD"
+          $md = Get-ChildItem $root -Recurse -Filter *.md -File
+          $issues = @()
+          $links = 0
+
+          foreach ($f in $md) {
+            $lineNumber = 0
+            foreach ($line in Get-Content $f.FullName) {
+              $lineNumber++
+              foreach ($match in [regex]::Matches($line, '\[[^\]]+\]\(([^)]+)\)')) {
+                $target = $match.Groups[1].Value.Trim().Trim('<', '>')
+
+                if ($target -match '^(https?:|mailto:|#)') {
+                  continue
+                }
+
+                $links++
+                $pathPart = $target
+                $anchor = $null
+
+                if ($pathPart -like '*#*') {
+                  $split = $pathPart -split '#', 2
+                  $pathPart = $split[0]
+                  $anchor = $split[1]
+                }
+
+                $resolved = if ([string]::IsNullOrWhiteSpace($pathPart)) {
+                  $f.FullName
+                } else {
+                  [IO.Path]::GetFullPath((Join-Path $f.DirectoryName $pathPart))
+                }
+
+                if (-not (Test-Path $resolved -PathType Leaf)) {
+                  $issues += [pscustomobject]@{
+                    type = 'missing-file'
+                    src = $f.FullName
+                    line = $lineNumber
+                    target = $target
+                  }
+                  continue
+                }
+
+                if ($anchor) {
+                  $headers = Get-Content $resolved |
+                    Where-Object { $_ -match '^#{1,6}\s+(.+)$' } |
+                    ForEach-Object {
+                      $h = $Matches[1].ToLowerInvariant()
+                      $h = $h -replace '[^a-z0-9\s-]', ''
+                      $h = $h -replace '\s+', '-'
+                      $h.Trim('-')
+                    }
+
+                  if ($headers -notcontains $anchor.ToLowerInvariant()) {
+                    $issues += [pscustomobject]@{
+                      type = 'missing-anchor'
+                      src = $f.FullName
+                      line = $lineNumber
+                      target = $target
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          Write-Host "MARKDOWN_FILES=$($md.Count)"
+          Write-Host "LINKS_CHECKED=$links"
+          Write-Host "ISSUES=$($issues.Count)"
+
+          if ($issues.Count -gt 0) {
+            Write-Host 'Broken internal links detected:'
+            foreach ($issue in $issues) {
+              Write-Host "- $($issue.type) in $($issue.src):$($issue.line) -> $($issue.target)"
+            }
+            throw 'Markdown link integrity check failed.'
+          }
+
   build-test:
     runs-on: ubuntu-latest
 

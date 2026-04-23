@@ -6,7 +6,7 @@ Base URL locale: http://localhost:8000
 
 ## GET /
 
-Ritorna metadati del servizio.
+Restituisce i metadati del servizio.
 
 ### Esempio risposta 200
 
@@ -19,7 +19,7 @@ Ritorna metadati del servizio.
 
 ## GET /reject
 
-Ritorna un rifiuto casuale.
+Restituisce un rifiuto casuale.
 
 ### Esempio risposta 200
 
@@ -33,7 +33,7 @@ Ritorna un rifiuto casuale.
 ## Errori
 
 Con l'implementazione attuale non ci sono input utente, quindi non sono previsti errori di validazione applicativa.
-Eventuali errori dipendono principalmente da runtime/container non disponibili.
+Eventuali errori dipendono principalmente da indisponibilita' di runtime o container.
 
 ## OpenAPI
 

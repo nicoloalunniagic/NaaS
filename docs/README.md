@@ -2,12 +2,12 @@
 
 > English version: [English README](./en/README.md)
 
-Questa cartella contiene la documentazione operativa del progetto, ora implementato in .NET.
+Questa cartella contiene la documentazione operativa del progetto, implementato in .NET.
 
 ## Lingue disponibili
 
-- Italiano: file nella root di docs
-- English: cartella en
+- Italiano: file nella root di `docs`
+- Inglese: cartella `en`
 
 ## Indice
 
@@ -16,7 +16,7 @@ Questa cartella contiene la documentazione operativa del progetto, ora implement
 3. [Riferimento API](./02-api-reference.md)
 4. [Troubleshooting](./03-troubleshooting.md)
 
-## English Mirror
+## Mirror inglese
 
 1. [English index](./en/README.md)
 2. [Project overview](./en/00-overview.md)
@@ -27,5 +27,23 @@ Questa cartella contiene la documentazione operativa del progetto, ora implement
 ## A chi serve
 
 - Sviluppatori che vogliono avviare o modificare il servizio
-- Chi deve integrare la API in un client
+- Chi deve integrare l'API in un client
 - Chi deve fare debug rapido in locale
+
+## Checklist editoriale pre-merge
+
+Usa questa checklist per ogni modifica documentale prima di aprire o aggiornare una PR.
+
+1. Correttezza tecnica: comandi, path, porte, endpoint e nomi file sono verificati.
+2. Coerenza linguistica: stile impersonale, frasi brevi e terminologia uniforme.
+3. Coerenza IT/EN: se un contenuto cambia in italiano, aggiorna anche il mirror inglese.
+4. Eseguibilita': ogni comando puo' essere copiato ed eseguito senza modifiche inattese.
+5. Struttura: titoli e sezioni seguono il formato del repository (overview, quickstart, API, troubleshooting).
+6. Ambito: niente dettagli fuori scope della pagina; usa link verso il documento corretto.
+7. Sicurezza: nessun segreto, token o identificatore sensibile nella documentazione.
+
+Checklist rapida di uscita:
+
+- Ho verificato almeno una volta i comandi principali riportati.
+- Ho aggiornato i link interni e non ci sono riferimenti obsoleti.
+- Ho allineato eventuali modifiche nei file in `docs/en`.

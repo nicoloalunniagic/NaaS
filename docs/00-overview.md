@@ -4,7 +4,7 @@
 
 ## Obiettivo
 
-No-as-a-Service è una micro API .NET che restituisce rifiuti casuali, generici, creativi e talvolta esilaranti.
+No-as-a-Service e' una micro API .NET che restituisce rifiuti casuali, generici, creativi e talvolta esilaranti.
 
 ## Stack
 
@@ -34,11 +34,11 @@ webapp/
 
 ## Comportamento del servizio
 
-- Endpoint root con informazioni base del servizio
-- Endpoint reject che risponde con approved=false e una reason casuale
-- Documentazione Swagger UI disponibile su /docs
+- Endpoint `/` con informazioni di base sul servizio
+- Endpoint `/reject` che risponde con `approved=false` e una motivazione casuale
+- Documentazione Swagger UI disponibile su `/docs`
 
 ## Note importanti
 
-- Il nome naas nel compose e solo il nome del servizio Docker
-- La porta esposta e 8000
+- Il nome `naas` nel compose e' solo il nome del servizio Docker
+- La porta esposta e' 8000

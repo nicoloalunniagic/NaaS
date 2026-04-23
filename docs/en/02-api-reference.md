@@ -1,6 +1,6 @@
 # API Reference
 
-> Versione italiana: [Riferimento API](../02-api-reference.md)
+> Italian version: [Riferimento API](../02-api-reference.md)
 
 Local base URL: http://localhost:8000
 
