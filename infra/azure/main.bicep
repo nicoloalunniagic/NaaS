@@ -61,27 +61,14 @@ module containerRegistry './modules/containerRegistry.bicep' = {
     name: '${namePrefix}acr'
     location: location
     tags: tags
+    acrPullPrincipalId: userAssignedIdentity.properties.principalId
   }
-}
-
-resource containerRegistryExisting 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  name: containerRegistry.outputs.name
 }
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${namePrefix}-uami'
   location: location
   tags: tags
-}
-
-resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerRegistryExisting.id, userAssignedIdentity.id, 'AcrPullRole')
-  scope: containerRegistryExisting
-  properties: {
-    principalId: userAssignedIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
-  }
 }
 
 module containerApp './modules/containerApp.bicep' = {
@@ -100,7 +87,7 @@ module containerApp './modules/containerApp.bicep' = {
     userAssignedIdentityId: userAssignedIdentity.id
   }
   dependsOn: [
-    acrPullRoleAssignment
+    containerRegistry
   ]
 }
 
