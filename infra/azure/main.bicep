@@ -86,9 +86,7 @@ module containerApp './modules/containerApp.bicep' = {
     acrLoginServer: containerRegistry.outputs.loginServer
     userAssignedIdentityId: userAssignedIdentity.id
   }
-  dependsOn: [
-    containerRegistry
-  ]
+
 }
 
 output containerRegistryName string = containerRegistry.outputs.name

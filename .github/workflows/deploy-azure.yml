@@ -1,15 +1,6 @@
 name: deploy-azure
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - "src/**"
-      - "docker/**"
-      - "infra/azure/**"
-      - ".github/workflows/deploy-azure.yml"
   workflow_dispatch:
 
 permissions:
