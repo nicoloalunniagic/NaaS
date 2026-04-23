@@ -65,7 +65,7 @@ module containerRegistry './modules/containerRegistry.bicep' = {
 }
 
 resource containerRegistryExisting 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  name: '${namePrefix}acr'
+  name: containerRegistry.outputs.name
 }
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
