@@ -111,6 +111,8 @@ module containerApp './modules/containerApp.bicep' = {
     ]
   }
 
+}
+
 
 
 output containerRegistryName string = containerRegistry.outputs.name
