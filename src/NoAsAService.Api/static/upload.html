@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload – No-as-a-Service</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #61dafb;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      margin-top: 8px;
+      font-size: 0.95rem;
+      color: #888;
+    }
+
+    .card {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #0f3460;
+      border-radius: 8px;
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: #61dafb;
+      background: rgba(97, 218, 251, 0.04);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-zone .icon {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+      user-select: none;
+    }
+
+    .drop-zone .hint {
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+
+    .drop-zone .hint strong {
+      color: #61dafb;
+    }
+
+    #file-list {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #0f3460;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+    }
+
+    .file-item .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .file-item .size {
+      color: #888;
+      white-space: nowrap;
+    }
+
+    .file-item .status {
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    .status-pending  { color: #888; }
+    .status-uploading { color: #f0a500; }
+    .status-done     { color: #4caf82; }
+    .status-error    { color: #f44; }
+
+    .actions {
+      margin-top: 24px;
+      display: flex;
+      gap: 12px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    #btn-upload {
+      background: #61dafb;
+      color: #1a1a2e;
+    }
+
+    #btn-clear {
+      background: #0f3460;
+      color: #e0e0e0;
+    }
+
+    #btn-upload:not(:disabled):hover { opacity: 0.85; }
+    #btn-clear:not(:disabled):hover  { opacity: 0.75; }
+
+    #summary {
+      margin-top: 20px;
+      font-size: 0.85rem;
+      color: #888;
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    footer {
+      margin-top: 48px;
+      font-size: 0.8rem;
+      color: #444;
+      text-align: center;
+    }
+
+    footer a { color: #61dafb; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>No-as-a-Service</h1>
+    <p>Upload files to Blob Storage — the one thing we won't reject.</p>
+  </header>
+
+  <main class="card">
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" multiple />
+      <div class="icon">📂</div>
+      <p><strong>Click to browse</strong> or drag &amp; drop files here</p>
+      <p class="hint" style="margin-top:6px">Max 50 MB per file</p>
+    </div>
+
+    <div id="file-list"></div>
+
+    <div class="actions">
+      <button id="btn-upload" disabled>Upload</button>
+      <button id="btn-clear" disabled>Clear</button>
+    </div>
+
+    <p id="summary"></p>
+  </main>
+
+  <footer>
+    <a href="/docs">API Docs</a> &nbsp;·&nbsp; No-as-a-Service
+  </footer>
+
+  <script>
+    const dropZone   = document.getElementById('drop-zone');
+    const fileInput  = document.getElementById('file-input');
+    const fileList   = document.getElementById('file-list');
+    const btnUpload  = document.getElementById('btn-upload');
+    const btnClear   = document.getElementById('btn-clear');
+    const summary    = document.getElementById('summary');
+
+    let selectedFiles = [];
+
+    // Drag-over styling
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    ['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over')));
+    dropZone.addEventListener('drop', e => { e.preventDefault(); addFiles(e.dataTransfer.files); });
+
+    fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+
+    function addFiles(incoming) {
+      for (const f of incoming) selectedFiles.push({ file: f, status: 'pending' });
+      render();
+    }
+
+    function render() {
+      fileList.innerHTML = '';
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const { file, status, detail } = selectedFiles[i];
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `
+          <span class="name" title="${esc(file.name)}">${esc(file.name)}</span>
+          <span class="size">${fmtSize(file.size)}</span>
+          <span class="status status-${status}">${statusLabel(status, detail)}</span>`;
+        fileList.appendChild(item);
+      }
+      const hasFiles = selectedFiles.length > 0;
+      const uploading = selectedFiles.some(f => f.status === 'uploading');
+      btnUpload.disabled = !hasFiles || uploading;
+      btnClear.disabled  = !hasFiles || uploading;
+    }
+
+    function statusLabel(status, detail) {
+      switch (status) {
+        case 'pending':   return '–';
+        case 'uploading': return '⏳ uploading…';
+        case 'done':      return '✓ uploaded';
+        case 'error':     return `✗ ${esc(detail ?? 'error')}`;
+        default:          return status;
+      }
+    }
+
+    btnClear.addEventListener('click', () => {
+      selectedFiles = [];
+      summary.textContent = '';
+      render();
+    });
+
+    btnUpload.addEventListener('click', async () => {
+      summary.textContent = '';
+      let done = 0, errors = 0;
+
+      for (const entry of selectedFiles) {
+        if (entry.status === 'done') { done++; continue; }
+
+        entry.status = 'uploading';
+        render();
+
+        const fd = new FormData();
+        fd.append('file', entry.file);
+
+        try {
+          const res = await fetch('/upload', { method: 'POST', body: fd });
+          if (res.ok) {
+            entry.status = 'done';
+            done++;
+          } else {
+            const body = await res.json().catch(() => ({}));
+            entry.status = 'error';
+            entry.detail = body.message ?? `HTTP ${res.status}`;
+            errors++;
+          }
+        } catch {
+          entry.status = 'error';
+          entry.detail = 'network error';
+          errors++;
+        }
+
+        render();
+      }
+
+      summary.textContent = errors === 0
+        ? `All ${done} file(s) uploaded successfully.`
+        : `${done} uploaded, ${errors} failed.`;
+    });
+
+    function fmtSize(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1048576).toFixed(1)} MB`;
+    }
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>

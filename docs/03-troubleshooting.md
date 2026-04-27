@@ -16,6 +16,8 @@ ports:
   - "8080:8000"
 ```
 
+Nota: con Azurite attivo serve anche la porta `10000`.
+
 ## Il container non parte
 
 Controlla i log:
@@ -29,6 +31,31 @@ Verifica anche:
 - Docker Desktop avviato
 - Build context corretto (context: ..)
 - Dockerfile path corretto (docker/Dockerfile)
+
+## Errore "No valid combination of account information found"
+
+Sintomo: il container API va in crash all'avvio con `System.FormatException` dal client Blob.
+
+Cause comuni:
+
+- `AZURE_STORAGE_CONNECTION_STRING` malformata
+- account/key usati in `naas` non allineati con `AZURITE_ACCOUNTS`
+
+Verifica rapida:
+
+```bash
+docker compose -f docker/docker-compose.yml ps
+docker compose -f docker/docker-compose.yml logs azurite
+```
+
+## Upload risponde 503 Storage is not configured
+
+Verifica che sia impostata una tra:
+
+- `AZURE_STORAGE_CONNECTION_STRING` (locale/Azurite)
+- `AZURE_STORAGE_ACCOUNT_NAME` (Azure reale con managed identity)
+
+In locale con Docker Compose e' usata la connection string verso Azurite.
 
 ## Modifiche al codice non visibili
 

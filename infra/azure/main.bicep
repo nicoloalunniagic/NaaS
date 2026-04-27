@@ -71,6 +71,16 @@ resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@
   tags: tags
 }
 
+module blobStorage './modules/blobStorage.bicep' = {
+  name: 'blobStorage'
+  params: {
+    name: '${namePrefix}blob'
+    location: location
+    tags: tags
+    storageContributorPrincipalId: userAssignedIdentity.properties.principalId
+  }
+}
+
 module containerApp './modules/containerApp.bicep' = {
   name: 'containerApp'
   params: {
@@ -85,9 +95,23 @@ module containerApp './modules/containerApp.bicep' = {
     maxReplicas: maxReplicas
     acrLoginServer: containerRegistry.outputs.loginServer
     userAssignedIdentityId: userAssignedIdentity.id
+    env: [
+      {
+        name: 'AZURE_STORAGE_ACCOUNT_NAME'
+        value: blobStorage.outputs.storageAccountName
+      }
+      {
+        name: 'AZURE_STORAGE_CONTAINER_NAME'
+        value: blobStorage.outputs.blobContainerName
+      }
+      {
+        name: 'AZURE_CLIENT_ID'
+        value: userAssignedIdentity.properties.clientId
+      }
+    ]
   }
 
-}
+
 
 output containerRegistryName string = containerRegistry.outputs.name
 output containerRegistryLoginServer string = containerRegistry.outputs.loginServer
@@ -95,3 +119,5 @@ output managedEnvironmentName string = foundation.outputs.managedEnvironmentName
 output containerAppName string = containerApp.outputs.name
 output containerAppUrl string = containerApp.outputs.url
 output appInsightsName string = foundation.outputs.appInsightsName
+output storageAccountName string = blobStorage.outputs.storageAccountName
+output blobContainerName string = blobStorage.outputs.blobContainerName

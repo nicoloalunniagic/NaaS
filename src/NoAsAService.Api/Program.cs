@@ -1,3 +1,6 @@
+using Azure.Identity;
+using Azure.Storage.Blobs;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using System.Threading.RateLimiting;
@@ -18,6 +21,24 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
+
+// Register BlobServiceClient:
+// - If AZURE_STORAGE_CONNECTION_STRING is set (local dev / Azurite), use it directly.
+// - Otherwise use the managed identity via DefaultAzureCredential (production).
+var storageConnectionString = builder.Configuration["AZURE_STORAGE_CONNECTION_STRING"];
+var storageAccountName = builder.Configuration["AZURE_STORAGE_ACCOUNT_NAME"];
+
+if (!string.IsNullOrWhiteSpace(storageConnectionString))
+{
+    builder.Services.AddSingleton(_ => new BlobServiceClient(storageConnectionString));
+}
+else if (!string.IsNullOrWhiteSpace(storageAccountName))
+{
+    builder.Services.AddSingleton(_ => new BlobServiceClient(
+        new Uri($"https://{storageAccountName}.blob.core.windows.net"),
+        new DefaultAzureCredential()));
+}
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -29,6 +50,18 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// In development (Azurite) the container won't be pre-created by Bicep, so ensure it exists.
+if (app.Environment.IsDevelopment())
+{
+    var blobSvc = app.Services.GetService<BlobServiceClient>();
+    if (blobSvc is not null)
+    {
+        var container = blobSvc.GetBlobContainerClient(
+            app.Configuration["AZURE_STORAGE_CONTAINER_NAME"] ?? "uploads");
+        await container.CreateIfNotExistsAsync();
+    }
+}
 
 app.Use(async (context, next) =>
 {
@@ -82,12 +115,52 @@ app.MapGet("/favicon.ico", (IWebHostEnvironment environment) =>
 })
 .ExcludeFromDescription();
 
+app.MapGet("/upload", (IWebHostEnvironment environment) =>
+{
+    var htmlPath = Path.Combine(environment.ContentRootPath, "static", "upload.html");
+    return Results.File(htmlPath, "text/html");
+})
+.ExcludeFromDescription();
+
 app.MapGet("/reject", () => Results.Ok(new
 {
     approved = false,
     reason = rejectionReasons[Random.Shared.Next(rejectionReasons.Length)]
 }))
 .WithName("GetRandomRejection");
+
+const long MaxFileSizeBytes = 50 * 1024 * 1024; // 50 MB
+var uploadContainerName = app.Configuration["AZURE_STORAGE_CONTAINER_NAME"] ?? "uploads";
+
+app.MapPost("/upload", async (IFormFile? file, [FromServices] BlobServiceClient? blobClient, CancellationToken ct) =>
+{
+    if (file is null || file.Length == 0)
+        return Results.BadRequest(new { status = "error", message = "No file provided." });
+
+    if (file.Length > MaxFileSizeBytes)
+        return Results.BadRequest(new { status = "error", message = "File exceeds the 50 MB size limit." });
+
+    if (blobClient is null)
+        return Results.Problem("Storage is not configured.", statusCode: 503);
+
+    var containerClient = blobClient.GetBlobContainerClient(uploadContainerName);
+    var safeName = Path.GetFileName(file.FileName);
+    var blobName = $"{Guid.NewGuid():N}-{safeName}";
+
+    await using var stream = file.OpenReadStream();
+    await containerClient.UploadBlobAsync(blobName, stream, ct);
+
+    var blobUri = containerClient.GetBlobClient(blobName).Uri;
+
+    return Results.Ok(new
+    {
+        status = "uploaded",
+        blobName,
+        blobUrl = blobUri.ToString()
+    });
+})
+.WithName("UploadFile")
+.DisableAntiforgery();
 
 app.Run();
 

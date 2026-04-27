@@ -5,8 +5,11 @@ Tiny ASP.NET Core API on .NET 10 with Docker support.
 ## What is included
 
 - Minimal HTTP API
+- File upload page at `/upload` (simple web UI)
+- Blob upload endpoint at `POST /upload`
 - OpenAPI JSON at `/openapi/v1.json`
 - Swagger UI at `/docs`
+- Local Blob Storage emulation with Azurite in Docker Compose
 - Docker build and compose setup
 - GitHub Actions CI for restore, test, and Docker build
 
@@ -35,6 +38,7 @@ docker compose -f docker/docker-compose.yml up --build
 
 - Home: `http://localhost:8000/`
 - Reject: `http://localhost:8000/reject`
+- Upload UI: `http://localhost:8000/upload`
 - OpenAPI: `http://localhost:8000/openapi/v1.json`
 - Swagger UI: `http://localhost:8000/docs`
 

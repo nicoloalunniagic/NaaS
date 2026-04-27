@@ -3,6 +3,7 @@
 > English version: [English README](./en/README.md)
 
 Questa cartella contiene la documentazione operativa del progetto, implementato in .NET.
+Include API base, upload file su Blob Storage e workflow locale con Azurite.
 
 ## Lingue disponibili
 
@@ -29,6 +30,7 @@ Questa cartella contiene la documentazione operativa del progetto, implementato 
 - Sviluppatori che vogliono avviare o modificare il servizio
 - Chi deve integrare l'API in un client
 - Chi deve fare debug rapido in locale
+- Chi deve testare upload file end-to-end su storage locale/emulato
 
 ## Checklist editoriale pre-merge
 

@@ -10,6 +10,9 @@ param maxReplicas int
 param acrLoginServer string
 param userAssignedIdentityId string
 
+@description('Environment variables to inject into the container')
+param env array = []
+
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
@@ -44,6 +47,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json(containerCpu)
             memory: containerMemory
           }
+          env: env
           probes: [
             {
               type: 'Liveness'

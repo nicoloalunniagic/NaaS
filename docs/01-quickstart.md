@@ -6,6 +6,7 @@
 
 - Docker Desktop installato e in esecuzione
 - Porta 8000 libera
+- Porta 10000 libera (Azurite Blob endpoint)
 - SDK .NET 10 (preview) installato, solo se vuoi eseguire il progetto fuori da Docker
 
 ## Avvio rapido
@@ -20,8 +21,19 @@ docker compose -f docker/docker-compose.yml up --build
 
 - Home: <http://localhost:8000/>
 - Reject: <http://localhost:8000/reject>
+- Upload UI: <http://localhost:8000/upload>
 - Swagger UI: <http://localhost:8000/docs>
 - OpenAPI JSON: <http://localhost:8000/openapi/v1.json>
+
+## Test rapido upload locale
+
+Con lo stack Docker attivo, puoi testare il caricamento file verso Azurite:
+
+```bash
+curl -X POST -F "file=@./README.md" http://localhost:8000/upload
+```
+
+Risposta attesa: JSON con `status=uploaded`, `blobName`, `blobUrl`.
 
 ## Stop
 

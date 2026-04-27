@@ -8,6 +8,7 @@ Questa cartella contiene Infrastructure-as-Code per distribuire la web app su Az
 - `foundation.bicep`: risorse condivise/base
 - `modules/containerRegistry.bicep`: modulo ACR
 - `modules/containerApp.bicep`: modulo Azure Container App
+- `modules/blobStorage.bicep`: modulo Storage Account + container blob + RBAC upload
 - `modules/appInsights.bicep`: modulo opzionale Application Insights
 - `dev.bicepparam`: set parametri sviluppo
 - `prod.bicepparam`: set parametri produzione
@@ -60,6 +61,18 @@ Forma consigliata del contratto modulo:
 - Azure Container App (ingress pubblico su porta 8000)
 - Managed identity user-assigned per il pull delle immagini da ACR
 - Assegnazione RBAC: AcrPull su ACR alla managed identity
+- Azure Storage Account (Blob) con container `uploads`
+- Assegnazione RBAC: Storage Blob Data Contributor alla managed identity dell'app
+
+## Integrazione upload app -> blob
+
+Il deploy Bicep passa alla Container App le variabili ambiente per lo storage:
+
+- `AZURE_STORAGE_ACCOUNT_NAME`
+- `AZURE_STORAGE_CONTAINER_NAME`
+- `AZURE_CLIENT_ID`
+
+L'app usa `DefaultAzureCredential` in Azure e la managed identity per autenticarsi su Blob.
 
 ## Prerequisiti
 

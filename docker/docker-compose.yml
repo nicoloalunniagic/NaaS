@@ -1,4 +1,17 @@
 services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: azurite
+    command: azurite-blob --blobHost 0.0.0.0
+    environment:
+      AZURITE_ACCOUNTS: devstoreaccount1:MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite-data:/data
+    networks:
+      - naas-net
+
   naas:
     build:
       context: ..
@@ -7,8 +20,12 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    depends_on:
+      - azurite
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      ASPNETCORE_ENVIRONMENT: Development
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+      AZURE_STORAGE_CONTAINER_NAME: uploads
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8000/"]
       interval: 30s
@@ -24,6 +41,9 @@ services:
           memory: 64M
     networks:
       - naas-net
+
+volumes:
+  azurite-data:
 
 networks:
   naas-net:

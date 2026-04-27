@@ -11,6 +11,7 @@ No-as-a-Service is a tiny .NET API that returns random, generic, creative, and s
 - .NET 10 (preview)
 - ASP.NET Core Minimal API
 - Swagger / OpenAPI
+- Azure Blob Storage (file upload)
 - Docker + Docker Compose
 
 ## Minimal Structure
@@ -36,9 +37,12 @@ webapp/
 
 - Root endpoint with basic service information
 - Reject endpoint that returns approved=false and a random reason
+- `GET /upload` endpoint serving an HTML page to select one or more files
+- `POST /upload` endpoint uploading files to Blob Storage (50 MB per file limit)
 - Swagger UI documentation exposed at /docs
 
 ## Important Notes
 
 - naas in compose is only the Docker service name
+- Compose also runs `azurite` to emulate Blob Storage locally
 - Exposed port is 8000

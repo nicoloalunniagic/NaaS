@@ -6,6 +6,7 @@
 
 - Docker Desktop installed and running
 - Port 8000 available
+- Port 10000 available (Azurite Blob endpoint)
 - .NET 10 SDK (preview), only if you want to run the project outside Docker
 
 ## Quick Start
@@ -20,8 +21,19 @@ docker compose -f docker/docker-compose.yml up --build
 
 - Home: <http://localhost:8000/>
 - Reject: <http://localhost:8000/reject>
+- Upload UI: <http://localhost:8000/upload>
 - Swagger UI: <http://localhost:8000/docs>
 - OpenAPI JSON: <http://localhost:8000/openapi/v1.json>
+
+## Quick local upload test
+
+With Docker Compose running, you can test file upload to Azurite:
+
+```bash
+curl -X POST -F "file=@./README.md" http://localhost:8000/upload
+```
+
+Expected response: JSON with `status=uploaded`, `blobName`, `blobUrl`.
 
 ## Stop
 

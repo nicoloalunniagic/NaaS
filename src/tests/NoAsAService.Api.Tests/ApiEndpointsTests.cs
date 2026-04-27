@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -44,5 +45,32 @@ public sealed class ApiEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         var response = await _client.GetAsync("/openapi/v1.json");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadEndpoint_ReturnsBadRequest_WhenNoFileProvided()
+    {
+        // Send a multipart request with a text field but no file part.
+        // The handler will receive file = null and return 400.
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent("dummy"), "other-field");
+        var response = await _client.PostAsync("/upload", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadEndpoint_ReturnsServiceUnavailable_WhenStorageNotConfigured()
+    {
+        // In the test environment AZURE_STORAGE_ACCOUNT_NAME is not set,
+        // so BlobServiceClient is not registered and the endpoint returns 503.
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes("hello blob")));
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+        content.Add(fileContent, "file", "test.txt");
+
+        var response = await _client.PostAsync("/upload", content);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
 }

@@ -3,6 +3,7 @@
 > Italian version: [README in Italian](../README.md)
 
 This folder contains the English mirror of the project documentation for the current .NET implementation.
+It covers core API behavior, file upload to Blob Storage, and local Azurite-based testing.
 
 ## Index
 
@@ -16,6 +17,7 @@ This folder contains the English mirror of the project documentation for the cur
 - Developers who want to run or modify the service
 - People integrating the API into a client
 - Anyone doing quick local debugging
+- Anyone validating end-to-end file upload flows against local/emulated storage
 
 ## Pre-merge editorial checklist
 
