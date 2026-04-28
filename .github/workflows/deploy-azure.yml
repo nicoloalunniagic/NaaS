@@ -54,7 +54,6 @@ jobs:
           parameters: >
             ${{ steps.params.outputs.params_file }}
             containerImage=mcr.microsoft.com/azuredocs/containerapps-helloworld:latest
-            minReplicas=0
           deploymentMode: Incremental
 
       - name: Build and push Docker image via ACR Tasks
@@ -73,45 +72,55 @@ jobs:
 
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
 
-      - name: Deploy app with pushed image
-        id: deploy_app
-        uses: azure/arm-deploy@v2
-        with:
-          subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}
-          template: infra/azure/main.bicep
-          parameters: >
-            ${{ steps.params.outputs.params_file }}
-            containerImage=${{ env.IMAGE_URI }}
-          deploymentMode: Incremental
+      - name: Update Container App image
+        id: update_app
+        shell: bash
+        run: |
+          CONTAINER_APP_NAME="${{ steps.infra_bootstrap.outputs.containerAppName }}"
+
+          az containerapp update \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ env.IMAGE_URI }}" \
+            --output none
+
+      - name: Resolve app URL
+        id: app_url
+        shell: bash
+        run: |
+          CONTAINER_APP_NAME="${{ steps.infra_bootstrap.outputs.containerAppName }}"
+          CONTAINER_APP_FQDN=$(az containerapp show \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
+
+          echo "container_app_url=https://$CONTAINER_APP_FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test deployed app
         shell: bash
         run: |
-          CONTAINER_APP_URL="${{ steps.deploy_app.outputs.containerAppUrl }}"
+          CONTAINER_APP_URL="${{ steps.app_url.outputs.container_app_url }}"
           BASE_URL="$CONTAINER_APP_URL"
+          ROOT_URL="$BASE_URL/"
+          OPENAPI_URL="$BASE_URL/openapi/v1.json"
 
-          wait_for_200() {
-            local url="$1"
-            local name="$2"
+          for attempt in {1..12}; do
+            root_code=$(curl -sS -o /dev/null -w "%{http_code}" "$ROOT_URL" || true)
+            openapi_code=$(curl -sS -o /dev/null -w "%{http_code}" "$OPENAPI_URL" || true)
 
-            for attempt in {1..12}; do
-              code=$(curl -sS -o /dev/null -w "%{http_code}" "$url" || true)
-              if [ "$code" = "200" ]; then
-                echo "Smoke check ok: $name ($url)"
-                return 0
-              fi
+            if [ "$root_code" = "200" ] && [ "$openapi_code" = "200" ]; then
+              echo "Smoke check ok: root endpoint ($ROOT_URL)"
+              echo "Smoke check ok: openapi endpoint ($OPENAPI_URL)"
+              exit 0
+            fi
 
-              echo "Attempt $attempt/12: $name returned HTTP $code"
-              sleep 10
-            done
+            echo "Attempt $attempt/12: root=$root_code openapi=$openapi_code"
+            sleep 10
+          done
 
-            echo "Smoke check failed: $name ($url) did not return HTTP 200"
-            return 1
-          }
-
-          wait_for_200 "$BASE_URL/" "root endpoint"
-          wait_for_200 "$BASE_URL/openapi/v1.json" "openapi endpoint"
+          echo "Smoke check failed: root or openapi endpoint did not return HTTP 200"
+          exit 1
 
       - name: Deployment summary
         shell: bash
@@ -121,5 +130,5 @@ jobs:
             echo ""
             echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
             echo "- Params file: ${{ steps.params.outputs.params_file }}"
-            echo "- URL: ${{ steps.deploy_app.outputs.containerAppUrl }}"
+            echo "- URL: ${{ steps.app_url.outputs.container_app_url }}"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -5,8 +5,8 @@ WORKDIR /src
 COPY src/NoAsAService.Api/NoAsAService.Api.csproj ./src/NoAsAService.Api/
 RUN dotnet restore ./src/NoAsAService.Api/NoAsAService.Api.csproj
 
-COPY src/. ./src/
-RUN dotnet publish ./src/NoAsAService.Api/NoAsAService.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+COPY src/NoAsAService.Api/. ./src/NoAsAService.Api/
+RUN dotnet publish ./src/NoAsAService.Api/NoAsAService.Api.csproj -c Release -o /app/publish --no-restore /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS runtime
 
@@ -14,16 +14,9 @@ WORKDIR /app
 
 ENV ASPNETCORE_URLS=http://+:8000
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends wget \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY --from=build /app/publish .
 
 EXPOSE 8000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -qO- http://localhost:8000/ > /dev/null 2>&1 || exit 1
 
 USER app
 
