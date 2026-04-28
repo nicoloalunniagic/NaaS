@@ -7,4 +7,3 @@ param containerCpu = '0.25'
 param containerMemory = '0.5Gi'
 param minReplicas = 0
 param maxReplicas = 1
-param deployAppInsights = false
