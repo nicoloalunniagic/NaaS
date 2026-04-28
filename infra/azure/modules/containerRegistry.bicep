@@ -28,8 +28,8 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
 
 resource geoReplication 'Microsoft.ContainerRegistry/registries/replications@2023-07-01' = {
   parent: registry
-  name: 'easteurope'
-  location: 'easteurope'
+  name: 'northeurope'
+  location: 'northeurope'
   properties: {}
 }
 
