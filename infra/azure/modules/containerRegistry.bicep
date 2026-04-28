@@ -17,23 +17,12 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
     adminUserEnabled: false
     publicNetworkAccess: 'Disabled'
     zoneRedundancy: 'Enabled'
-  }
-}
-
-resource softDeletePolicy 'Microsoft.ContainerRegistry/registries/deletedRepositories@2023-07-01' = {
-  parent: registry
-  name: 'default'
-  properties: {
-    deleteUntaggedManifestsAfterDays: 30
-  }
-}
-
-resource retentionPolicy 'Microsoft.ContainerRegistry/registries/policies@2023-07-01' = {
-  parent: registry
-  name: 'default'
-  properties: {
-    status: 'enabled'
-    days: 30
+    policies: {
+      retentionPolicy: {
+        status: 'enabled'
+        days: 30
+      }
+    }
   }
 }
 
