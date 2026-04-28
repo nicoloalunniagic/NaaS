@@ -2,6 +2,7 @@ param location string
 param namePrefix string
 param tags object = {}
 param deployAppInsights bool = false
+param enableZoneRedundancy bool = false
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${namePrefix}-law'
@@ -37,7 +38,7 @@ resource managedEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
         sharedKey: logAnalytics.listKeys().primarySharedKey
       }
     }
-    zoneRedundant: true
+    zoneRedundant: enableZoneRedundancy
   }
 }
 

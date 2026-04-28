@@ -40,6 +40,9 @@ param maxReplicas int = 3
 @description('Deploy Application Insights in addition to Log Analytics')
 param deployAppInsights bool = false
 
+@description('Enable zone redundancy for Container Apps managed environment (requires infrastructure subnet)')
+param enableZoneRedundancy bool = false
+
 var tags = {
   app: 'no-as-a-service'
   managedBy: 'bicep'
@@ -52,6 +55,7 @@ module foundation './foundation.bicep' = {
     namePrefix: namePrefix
     tags: tags
     deployAppInsights: deployAppInsights
+    enableZoneRedundancy: enableZoneRedundancy
   }
 }
 
