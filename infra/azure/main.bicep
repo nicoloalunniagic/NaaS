@@ -37,9 +37,6 @@ param minReplicas int = 1
 @maxValue(20)
 param maxReplicas int = 3
 
-@description('Deploy Application Insights in addition to Log Analytics')
-param deployAppInsights bool = false
-
 @description('Enable zone redundancy for Container Apps managed environment (requires infrastructure subnet)')
 param enableZoneRedundancy bool = false
 
@@ -54,7 +51,6 @@ module foundation './foundation.bicep' = {
     location: location
     namePrefix: namePrefix
     tags: tags
-    deployAppInsights: deployAppInsights
     enableZoneRedundancy: enableZoneRedundancy
   }
 }
@@ -124,6 +120,6 @@ output containerRegistryLoginServer string = containerRegistry.outputs.loginServ
 output managedEnvironmentName string = foundation.outputs.managedEnvironmentName
 output containerAppName string = containerApp.outputs.name
 output containerAppUrl string = containerApp.outputs.url
-output appInsightsName string = foundation.outputs.appInsightsName
+
 output storageAccountName string = blobStorage.outputs.storageAccountName
 output blobContainerName string = blobStorage.outputs.blobContainerName
