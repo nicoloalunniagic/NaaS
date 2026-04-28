@@ -42,32 +42,9 @@ resource managedEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
-resource caeDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${namePrefix}-cae-diag'
-  scope: managedEnvironment
-  properties: {
-    workspaceId: logAnalytics.id
-    logs: [
-      {
-        category: 'ContainerAppConsoleLogs'
-        enabled: true
-      }
-      {
-        category: 'ContainerAppSystemLogs'
-        enabled: true
-      }
-    ]
-    metrics: [
-      {
-        category: 'AllMetrics'
-        enabled: true
-      }
-    ]
-  }
-}
+
 
 output logAnalyticsWorkspaceName string = logAnalytics.name
-output logAnalyticsWorkspaceId string = logAnalytics.id
 output managedEnvironmentId string = managedEnvironment.id
 output managedEnvironmentName string = managedEnvironment.name
 output appInsightsName string = deployAppInsights ? '${namePrefix}-appi' : ''

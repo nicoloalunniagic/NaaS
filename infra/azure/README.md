@@ -55,13 +55,13 @@ Forma consigliata del contratto modulo:
 
 ## Cosa viene distribuito
 
-- Azure Container Registry (ACR) Basic
+- Azure Container Registry (ACR) Basic (singola regione, nessuna geo-replicazione)
 - Azure Log Analytics Workspace
-- Azure Container Apps Environment
+- Azure Container Apps Environment (single-zone, zone redundancy disabilitata per default)
 - Azure Container App (ingress pubblico su porta 8000)
 - Managed identity user-assigned per il pull delle immagini da ACR
 - Assegnazione RBAC: AcrPull su ACR alla managed identity
-- Azure Storage Account (Blob) con container `uploads`
+- Azure Storage Account (Blob) Standard_LRS con container `uploads`
 - Assegnazione RBAC: Storage Blob Data Contributor alla managed identity dell'app
 
 ## Integrazione upload app -> blob
@@ -73,6 +73,22 @@ Il deploy Bicep passa alla Container App le variabili ambiente per lo storage:
 - `AZURE_CLIENT_ID`
 
 L'app usa `DefaultAzureCredential` in Azure e la managed identity per autenticarsi su Blob.
+
+## Parametri disponibili
+
+I file `.bicepparam` controllano il comportamento del deploy:
+
+| Parametro              | Tipo   | Default                    | Descrizione                                                   |
+| ---------------------- | ------ | -------------------------- | ------------------------------------------------------------- |
+| `location`             | string | `resourceGroup().location` | Regione Azure (es. `westeurope`)                              |
+| `namePrefix`           | string | -                          | Prefisso per nomi risorse (3-12 caratteri)                    |
+| `containerImage`       | string | -                          | URI immagine container (es. `registry.azurecr.io/app:latest`) |
+| `containerCpu`         | string | `'0.5'`                    | CPU cores: `'0.25'`, `'0.5'`, `'1.0'`, `'2.0'`                |
+| `containerMemory`      | string | `'1.0Gi'`                  | RAM: `'0.5Gi'`, `'1.0Gi'`, `'2.0Gi'`, `'4.0Gi'`               |
+| `minReplicas`          | int    | `1`                        | Replica minime Container App (0-10)                           |
+| `maxReplicas`          | int    | `3`                        | Replica massime Container App (1-20)                          |
+| `deployAppInsights`    | bool   | `false`                    | Abilita Application Insights (aggiuntivo)                     |
+| `enableZoneRedundancy` | bool   | `false`                    | Abilita zone redundancy CAE (richiede subnet infrastruttura)  |
 
 ## Prerequisiti
 

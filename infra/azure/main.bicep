@@ -66,7 +66,6 @@ module containerRegistry './modules/containerRegistry.bicep' = {
     location: location
     tags: tags
     acrPullPrincipalId: userAssignedIdentity.properties.principalId
-    logAnalyticsWorkspaceId: foundation.outputs.logAnalyticsWorkspaceId
   }
 }
 
@@ -83,7 +82,6 @@ module blobStorage './modules/blobStorage.bicep' = {
     location: location
     tags: tags
     storageContributorPrincipalId: userAssignedIdentity.properties.principalId
-    logAnalyticsWorkspaceId: foundation.outputs.logAnalyticsWorkspaceId
   }
 }
 
