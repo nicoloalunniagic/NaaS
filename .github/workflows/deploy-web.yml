@@ -1,0 +1,79 @@
+name: deploy-web
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'Public URL of the deployed API (e.g. https://naas-api.azurecontainerapps.io)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/web
+        run: npm ci || npm install
+
+      - name: Build (with API base URL baked in)
+        working-directory: src/web
+        env:
+          VITE_API_BASE_URL: ${{ inputs.api_base_url }}
+        run: npm run build
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve SWA deployment token
+        id: swa_token
+        shell: bash
+        run: |
+          SWA_NAME="${{ vars.AZURE_STATIC_WEB_APP_NAME }}"
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          TOKEN=$(az staticwebapp secrets list \
+            --name "$SWA_NAME" \
+            --resource-group "$RG" \
+            --query properties.apiKey -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.swa_token.outputs.token }}
+          action: 'upload'
+          app_location: 'src/web/dist'
+          skip_app_build: true
+          skip_api_build: true
+          output_location: ''
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "### Static Web App deployment completed"
+            echo ""
+            echo "- SWA name: ${{ vars.AZURE_STATIC_WEB_APP_NAME }}"
+            echo "- API base URL baked in: ${{ inputs.api_base_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

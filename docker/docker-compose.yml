@@ -6,9 +6,28 @@ services:
     environment:
       AZURITE_ACCOUNTS: devstoreaccount1:MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
     ports:
-      - "10000:10000"
+      - '10000:10000'
     volumes:
       - azurite-data:/data
+    networks:
+      - naas-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: naas-postgres
+    environment:
+      POSTGRES_USER: naas
+      POSTGRES_PASSWORD: naas
+      POSTGRES_DB: naas
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U naas -d naas']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - naas-net
 
@@ -18,16 +37,20 @@ services:
       dockerfile: docker/Dockerfile
     container_name: no-as-a-service
     ports:
-      - "8000:8000"
+      - '8000:8000'
     restart: unless-stopped
     depends_on:
-      - azurite
+      azurite:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+      AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=;BlobEndpoint=http://azurite:10000/devstoreaccount1;'
       AZURE_STORAGE_CONTAINER_NAME: uploads
+      DATABASE_CONNECTION_STRING: 'Host=postgres;Port=5432;Database=naas;Username=naas;Password=naas'
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8000/"]
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8000/']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -35,15 +58,34 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.50"
+          cpus: '0.50'
           memory: 256M
         reservations:
           memory: 64M
     networks:
       - naas-net
 
+  web:
+    image: node:20-alpine
+    container_name: naas-web
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_DEV_API_PROXY: 'http://naas:8000'
+    ports:
+      - '5173:5173'
+    volumes:
+      - ../src/web:/app
+      - web-node-modules:/app/node_modules
+    depends_on:
+      - naas
+    networks:
+      - naas-net
+
 volumes:
   azurite-data:
+  postgres-data:
+  web-node-modules:
 
 networks:
   naas-net:

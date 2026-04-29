@@ -40,6 +40,16 @@ param maxReplicas int = 3
 @description('Enable zone redundancy for Container Apps managed environment (requires infrastructure subnet)')
 param enableZoneRedundancy bool = false
 
+@description('Region for the Static Web App. SWA SKUs only available in a subset of regions.')
+param staticWebAppLocation string = 'westeurope'
+
+@description('SKU for the Static Web App')
+@allowed([
+  'Free'
+  'Standard'
+])
+param staticWebAppSku string = 'Free'
+
 var tags = {
   app: 'no-as-a-service'
   managedBy: 'bicep'
@@ -108,9 +118,23 @@ module containerApp './modules/containerApp.bicep' = {
         name: 'AZURE_CLIENT_ID'
         value: userAssignedIdentity.properties.clientId
       }
+      {
+        name: 'CORS_ALLOWED_ORIGINS'
+        value: staticWebApp.outputs.url
+      }
     ]
   }
 
+}
+
+module staticWebApp './modules/staticWebApp.bicep' = {
+  name: 'staticWebApp'
+  params: {
+    name: '${namePrefix}-web'
+    location: staticWebAppLocation
+    tags: tags
+    sku: staticWebAppSku
+  }
 }
 
 
@@ -123,3 +147,6 @@ output containerAppUrl string = containerApp.outputs.url
 
 output storageAccountName string = blobStorage.outputs.storageAccountName
 output blobContainerName string = blobStorage.outputs.blobContainerName
+
+output staticWebAppName string = staticWebApp.outputs.name
+output staticWebAppUrl string = staticWebApp.outputs.url

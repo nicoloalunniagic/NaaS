@@ -2,7 +2,9 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using NoAsAService.Api.Data;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +24,32 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 
+// CORS: allow the SPA front-end to call the API. Origins come from the
+// CORS_ALLOWED_ORIGINS env var (comma-separated). In dev, also allow the
+// local Vite dev server.
+const string CorsPolicy = "web-spa";
+var corsOriginsRaw = builder.Configuration["CORS_ALLOWED_ORIGINS"] ?? string.Empty;
+var configuredOrigins = corsOriginsRaw
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+var devOrigins = new[] { "http://localhost:5173", "http://localhost:4173" };
+var allowedOrigins = configuredOrigins
+    .Concat(builder.Environment.IsDevelopment() ? devOrigins : Array.Empty<string>())
+    .Distinct()
+    .ToArray();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(CorsPolicy, policy =>
+    {
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+    });
+});
+
 // Register BlobServiceClient:
 // - If AZURE_STORAGE_CONNECTION_STRING is set (local dev / Azurite), use it directly.
 // - Otherwise use the managed identity via DefaultAzureCredential (production).
@@ -37,6 +65,25 @@ else if (!string.IsNullOrWhiteSpace(storageAccountName))
     builder.Services.AddSingleton(_ => new BlobServiceClient(
         new Uri($"https://{storageAccountName}.blob.core.windows.net"),
         new DefaultAzureCredential()));
+}
+
+// Register the EF Core DbContext.
+// - If DATABASE_CONNECTION_STRING is set, use PostgreSQL (Npgsql).
+// - Otherwise fall back to an in-memory database (useful for tests/dev without a DB).
+var databaseConnectionString = builder.Configuration["DATABASE_CONNECTION_STRING"];
+if (!string.IsNullOrWhiteSpace(databaseConnectionString))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(databaseConnectionString, npgsql =>
+            npgsql.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(10),
+                errorCodesToAdd: null)));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseInMemoryDatabase("naas-dev"));
 }
 
 builder.Services.AddSwaggerGen(options =>
@@ -63,6 +110,32 @@ if (app.Environment.IsDevelopment())
     }
 }
 
+// Ensure the relational schema is created on startup. For a real production
+// system you'd use EF Core migrations; EnsureCreated keeps the demo simple.
+// Retry a few times so the API tolerates the database not being ready yet
+// (e.g. first boot under docker compose, transient DNS resolution).
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbStartup");
+    const int maxAttempts = 10;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            await db.Database.EnsureCreatedAsync();
+            break;
+        }
+        catch (Exception ex) when (attempt < maxAttempts)
+        {
+            logger.LogWarning(ex,
+                "Database not ready (attempt {Attempt}/{Max}). Retrying...",
+                attempt, maxAttempts);
+            await Task.Delay(TimeSpan.FromSeconds(Math.Min(2 * attempt, 10)));
+        }
+    }
+}
+
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -72,6 +145,8 @@ app.Use(async (context, next) =>
 });
 
 app.UseRateLimiter();
+
+app.UseCors(CorsPolicy);
 
 var rejectionReasons = new[]
 {
@@ -161,6 +236,143 @@ app.MapPost("/upload", async (IFormFile? file, [FromServices] BlobServiceClient?
 })
 .WithName("UploadFile")
 .DisableAntiforgery();
+
+// ---------------------------------------------------------------------------
+// Customers CRUD
+// ---------------------------------------------------------------------------
+var customers = app.MapGroup("/customers").WithTags("Customers");
+
+customers.MapGet("", async (AppDbContext db) =>
+    Results.Ok(await db.Customers.AsNoTracking().ToListAsync()))
+    .WithName("ListCustomers");
+
+customers.MapGet("/{id:int}", async (int id, AppDbContext db) =>
+{
+    var customer = await db.Customers
+        .Include(c => c.Projects)
+        .AsNoTracking()
+        .FirstOrDefaultAsync(c => c.Id == id);
+    return customer is null ? Results.NotFound() : Results.Ok(customer);
+})
+.WithName("GetCustomer");
+
+customers.MapPost("", async (Customer input, AppDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(input.Name))
+        return Results.BadRequest(new { status = "error", message = "Name is required." });
+
+    var customer = new Customer { Name = input.Name.Trim(), Email = input.Email?.Trim() };
+    db.Customers.Add(customer);
+    await db.SaveChangesAsync();
+    return Results.Created($"/customers/{customer.Id}", customer);
+})
+.WithName("CreateCustomer");
+
+customers.MapPut("/{id:int}", async (int id, Customer input, AppDbContext db) =>
+{
+    var customer = await db.Customers.FindAsync(id);
+    if (customer is null) return Results.NotFound();
+    if (string.IsNullOrWhiteSpace(input.Name))
+        return Results.BadRequest(new { status = "error", message = "Name is required." });
+
+    customer.Name = input.Name.Trim();
+    customer.Email = input.Email?.Trim();
+    await db.SaveChangesAsync();
+    return Results.Ok(customer);
+})
+.WithName("UpdateCustomer");
+
+customers.MapDelete("/{id:int}", async (int id, AppDbContext db) =>
+{
+    var customer = await db.Customers
+        .Include(c => c.Projects)
+        .FirstOrDefaultAsync(c => c.Id == id);
+    if (customer is null) return Results.NotFound();
+    db.Customers.Remove(customer);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+})
+.WithName("DeleteCustomer");
+
+customers.MapGet("/{id:int}/projects", async (int id, AppDbContext db) =>
+{
+    var exists = await db.Customers.AnyAsync(c => c.Id == id);
+    if (!exists) return Results.NotFound();
+    var list = await db.Projects.AsNoTracking()
+        .Where(p => p.CustomerId == id)
+        .ToListAsync();
+    return Results.Ok(list);
+})
+.WithName("ListCustomerProjects");
+
+// ---------------------------------------------------------------------------
+// Projects CRUD (each project belongs to one customer)
+// ---------------------------------------------------------------------------
+var projects = app.MapGroup("/projects").WithTags("Projects");
+
+projects.MapGet("", async (AppDbContext db) =>
+    Results.Ok(await db.Projects.AsNoTracking().ToListAsync()))
+    .WithName("ListProjects");
+
+projects.MapGet("/{id:int}", async (int id, AppDbContext db) =>
+{
+    var project = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
+    return project is null ? Results.NotFound() : Results.Ok(project);
+})
+.WithName("GetProject");
+
+projects.MapPost("", async (Project input, AppDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(input.Name))
+        return Results.BadRequest(new { status = "error", message = "Name is required." });
+
+    var customerExists = await db.Customers.AnyAsync(c => c.Id == input.CustomerId);
+    if (!customerExists)
+        return Results.BadRequest(new { status = "error", message = "CustomerId does not match an existing customer." });
+
+    var project = new Project
+    {
+        Name = input.Name.Trim(),
+        Description = input.Description,
+        CustomerId = input.CustomerId
+    };
+    db.Projects.Add(project);
+    await db.SaveChangesAsync();
+    return Results.Created($"/projects/{project.Id}", project);
+})
+.WithName("CreateProject");
+
+projects.MapPut("/{id:int}", async (int id, Project input, AppDbContext db) =>
+{
+    var project = await db.Projects.FindAsync(id);
+    if (project is null) return Results.NotFound();
+    if (string.IsNullOrWhiteSpace(input.Name))
+        return Results.BadRequest(new { status = "error", message = "Name is required." });
+
+    if (input.CustomerId != project.CustomerId)
+    {
+        var customerExists = await db.Customers.AnyAsync(c => c.Id == input.CustomerId);
+        if (!customerExists)
+            return Results.BadRequest(new { status = "error", message = "CustomerId does not match an existing customer." });
+        project.CustomerId = input.CustomerId;
+    }
+
+    project.Name = input.Name.Trim();
+    project.Description = input.Description;
+    await db.SaveChangesAsync();
+    return Results.Ok(project);
+})
+.WithName("UpdateProject");
+
+projects.MapDelete("/{id:int}", async (int id, AppDbContext db) =>
+{
+    var project = await db.Projects.FindAsync(id);
+    if (project is null) return Results.NotFound();
+    db.Projects.Remove(project);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+})
+.WithName("DeleteProject");
 
 app.Run();
 
