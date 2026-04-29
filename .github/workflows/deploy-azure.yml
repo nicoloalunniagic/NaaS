@@ -2,6 +2,12 @@ name: deploy-azure
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_infra:
+        description: 'Skip Bicep deploy (image-only fast path). Resources must already exist.'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,17 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Resolve parameters file
-        id: params
-        shell: bash
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            PARAMS_FILE="infra/azure/prod.bicepparam"
-          else
-            PARAMS_FILE="infra/azure/dev.bicepparam"
-          fi
-          echo "params_file=$PARAMS_FILE" >> "$GITHUB_OUTPUT"
-
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
@@ -38,14 +33,27 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Create resource group
+        if: ${{ inputs.skip_infra == false }}
         shell: bash
         run: |
           az group create \
             --name "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --location "${{ vars.AZURE_LOCATION }}"
 
+      - name: Resolve parameters file
+        if: ${{ inputs.skip_infra == false }}
+        id: params
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "params_file=infra/azure/prod.bicepparam" >> "$GITHUB_OUTPUT"
+          else
+            echo "params_file=infra/azure/dev.bicepparam" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy infra (bootstrap image)
-        id: infra_bootstrap
+        if: ${{ inputs.skip_infra == false }}
+        id: infra
         uses: azure/arm-deploy@v2
         env:
           DB_ADMIN_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
@@ -58,16 +66,44 @@ jobs:
             containerImage=mcr.microsoft.com/azuredocs/containerapps-helloworld:latest
           deploymentMode: Incremental
 
+      - name: Discover existing Azure resources
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+
+          if [[ -n "${{ steps.infra.outputs.containerRegistryName }}" ]]; then
+            ACR_NAME="${{ steps.infra.outputs.containerRegistryName }}"
+            ACR_LOGIN_SERVER="${{ steps.infra.outputs.containerRegistryLoginServer }}"
+            CONTAINER_APP_NAME="${{ steps.infra.outputs.containerAppName }}"
+          else
+            ACR_NAME=$(az resource list -g "$RG" \
+              --resource-type "Microsoft.ContainerRegistry/registries" \
+              --query "[0].name" -o tsv)
+            ACR_LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)
+            CONTAINER_APP_NAME=$(az resource list -g "$RG" \
+              --resource-type "Microsoft.App/containerApps" \
+              --query "[0].name" -o tsv)
+          fi
+
+          if [[ -z "$ACR_NAME" || -z "$CONTAINER_APP_NAME" ]]; then
+            echo "Could not find ACR or Container App in '$RG'." >&2
+            exit 1
+          fi
+
+          echo "container_registry_name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+          echo "container_registry_login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "container_app_name=$CONTAINER_APP_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker image via ACR Tasks
         shell: bash
         run: |
-          ACR_NAME="${{ steps.infra_bootstrap.outputs.containerRegistryName }}"
-          ACR_LOGIN_SERVER="${{ steps.infra_bootstrap.outputs.containerRegistryLoginServer }}"
           IMAGE_TAG="$(echo "$GITHUB_SHA" | cut -c1-12)"
-          IMAGE_URI="$ACR_LOGIN_SERVER/naas:$IMAGE_TAG"
+          IMAGE_URI="${{ steps.discover.outputs.container_registry_login_server }}/naas:$IMAGE_TAG"
 
           az acr build \
-            --registry "$ACR_NAME" \
+            --registry "${{ steps.discover.outputs.container_registry_name }}" \
             --image "naas:$IMAGE_TAG" \
             --file docker/Dockerfile \
             .
@@ -75,13 +111,10 @@ jobs:
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
 
       - name: Update Container App image
-        id: update_app
         shell: bash
         run: |
-          CONTAINER_APP_NAME="${{ steps.infra_bootstrap.outputs.containerAppName }}"
-
           az containerapp update \
-            --name "$CONTAINER_APP_NAME" \
+            --name "${{ steps.discover.outputs.container_app_name }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --image "${{ env.IMAGE_URI }}" \
             --output none
@@ -90,9 +123,8 @@ jobs:
         id: app_url
         shell: bash
         run: |
-          CONTAINER_APP_NAME="${{ steps.infra_bootstrap.outputs.containerAppName }}"
           CONTAINER_APP_FQDN=$(az containerapp show \
-            --name "$CONTAINER_APP_NAME" \
+            --name "${{ steps.discover.outputs.container_app_name }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --query properties.configuration.ingress.fqdn \
             --output tsv)
@@ -102,18 +134,14 @@ jobs:
       - name: Smoke test deployed app
         shell: bash
         run: |
-          CONTAINER_APP_URL="${{ steps.app_url.outputs.container_app_url }}"
-          BASE_URL="$CONTAINER_APP_URL"
-          ROOT_URL="$BASE_URL/"
-          OPENAPI_URL="$BASE_URL/openapi/v1.json"
+          BASE_URL="${{ steps.app_url.outputs.container_app_url }}"
 
           for attempt in {1..12}; do
-            root_code=$(curl -sS -o /dev/null -w "%{http_code}" "$ROOT_URL" || true)
-            openapi_code=$(curl -sS -o /dev/null -w "%{http_code}" "$OPENAPI_URL" || true)
+            root_code=$(curl -sS -o /dev/null -w "%{http_code}" "$BASE_URL/" || true)
+            openapi_code=$(curl -sS -o /dev/null -w "%{http_code}" "$BASE_URL/openapi/v1.json" || true)
 
             if [ "$root_code" = "200" ] && [ "$openapi_code" = "200" ]; then
-              echo "Smoke check ok: root endpoint ($ROOT_URL)"
-              echo "Smoke check ok: openapi endpoint ($OPENAPI_URL)"
+              echo "Smoke check ok: $BASE_URL"
               exit 0
             fi
 
@@ -121,7 +149,7 @@ jobs:
             sleep 10
           done
 
-          echo "Smoke check failed: root or openapi endpoint did not return HTTP 200"
+          echo "Smoke check failed"
           exit 1
 
       - name: Deployment summary
@@ -131,6 +159,8 @@ jobs:
             echo "### Azure deployment completed"
             echo ""
             echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
-            echo "- Params file: ${{ steps.params.outputs.params_file }}"
+            echo "- Skip infra: ${{ inputs.skip_infra }}"
+            echo "- Container App: ${{ steps.discover.outputs.container_app_name }}"
+            echo "- Image: ${{ env.IMAGE_URI }}"
             echo "- URL: ${{ steps.app_url.outputs.container_app_url }}"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -2,18 +2,16 @@ name: deploy-web
 
 on:
   workflow_dispatch:
-    inputs:
-      api_base_url:
-        description: 'Public URL of the deployed API. Leave empty to auto-detect the Container App in the resource group.'
-        required: false
-        type: string
 
 permissions:
   contents: read
   id-token: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     environment: dev
 
@@ -30,7 +28,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: src/web
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -39,60 +37,45 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Discover Azure resources in the resource group
+      - name: Discover existing Azure resources
         id: discover
         shell: bash
         run: |
           set -euo pipefail
           RG="${{ vars.AZURE_RESOURCE_GROUP }}"
 
-          # Static Web App: prefer explicit var, otherwise pick the only SWA in the RG.
-          SWA_NAME="${{ vars.AZURE_STATIC_WEB_APP_NAME }}"
-          if [[ -z "$SWA_NAME" ]]; then
-            SWA_NAME=$(az resource list \
-              --resource-group "$RG" \
-              --resource-type "Microsoft.Web/staticSites" \
-              --query "[0].name" -o tsv)
-          fi
-          if [[ -z "$SWA_NAME" || "$SWA_NAME" == "null" ]]; then
-            echo "No Static Web App found in resource group '$RG'." >&2
+          STATIC_WEB_APP_NAME=$(az resource list -g "$RG" \
+            --resource-type "Microsoft.Web/staticSites" \
+            --query "[0].name" -o tsv)
+          CONTAINER_APP_NAME=$(az resource list -g "$RG" \
+            --resource-type "Microsoft.App/containerApps" \
+            --query "[0].name" -o tsv)
+
+          if [[ -z "$STATIC_WEB_APP_NAME" || -z "$CONTAINER_APP_NAME" ]]; then
+            echo "Could not find Static Web App or Container App in '$RG'." >&2
             exit 1
           fi
-          echo "swa_name=$SWA_NAME" >> "$GITHUB_OUTPUT"
 
-          # API base URL: prefer workflow input, otherwise resolve from the
-          # single Container App in the resource group.
-          API_URL="${{ inputs.api_base_url }}"
-          if [[ -z "$API_URL" ]]; then
-            CA_NAME=$(az resource list \
-              --resource-group "$RG" \
-              --resource-type "Microsoft.App/containerApps" \
-              --query "[0].name" -o tsv)
-            if [[ -z "$CA_NAME" || "$CA_NAME" == "null" ]]; then
-              echo "No Container App found in resource group '$RG' to derive API URL from." >&2
-              exit 1
-            fi
-            FQDN=$(az containerapp show \
-              --name "$CA_NAME" \
-              --resource-group "$RG" \
-              --query properties.configuration.ingress.fqdn -o tsv)
-            API_URL="https://$FQDN"
-          fi
-          echo "api_url=$API_URL" >> "$GITHUB_OUTPUT"
+          CONTAINER_APP_FQDN=$(az containerapp show \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RG" \
+            --query properties.configuration.ingress.fqdn -o tsv)
 
-      - name: Build (with API base URL baked in)
+          echo "static_web_app_name=$STATIC_WEB_APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "api_base_url=https://$CONTAINER_APP_FQDN" >> "$GITHUB_OUTPUT"
+
+      - name: Build SPA
         working-directory: src/web
         env:
-          VITE_API_BASE_URL: ${{ steps.discover.outputs.api_url }}
+          VITE_API_BASE_URL: ${{ steps.discover.outputs.api_base_url }}
         run: npm run build
 
       - name: Resolve SWA deployment token
         id: swa_token
         shell: bash
         run: |
-          set -euo pipefail
           TOKEN=$(az staticwebapp secrets list \
-            --name "${{ steps.discover.outputs.swa_name }}" \
+            --name "${{ steps.discover.outputs.static_web_app_name }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --query properties.apiKey -o tsv)
           echo "::add-mask::$TOKEN"
@@ -106,14 +89,43 @@ jobs:
           app_location: 'src/web/dist'
           skip_app_build: true
           skip_api_build: true
-          output_location: ''
 
-      - name: Summary
+      - name: Resolve app URL
+        id: app_url
+        shell: bash
+        run: |
+          STATIC_WEB_APP_FQDN=$(az staticwebapp show \
+            --name "${{ steps.discover.outputs.static_web_app_name }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query defaultHostname -o tsv)
+          echo "static_web_app_url=https://$STATIC_WEB_APP_FQDN" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test deployed SPA
+        shell: bash
+        run: |
+          BASE_URL="${{ steps.app_url.outputs.static_web_app_url }}"
+
+          for attempt in {1..12}; do
+            root_code=$(curl -sS -o /dev/null -w "%{http_code}" "$BASE_URL/" || true)
+            if [ "$root_code" = "200" ]; then
+              echo "Smoke check ok: $BASE_URL"
+              exit 0
+            fi
+            echo "Attempt $attempt/12: root=$root_code"
+            sleep 10
+          done
+
+          echo "Smoke check failed"
+          exit 1
+
+      - name: Deployment summary
         shell: bash
         run: |
           {
             echo "### Static Web App deployment completed"
             echo ""
-            echo "- SWA name: ${{ steps.discover.outputs.swa_name }}"
-            echo "- API base URL baked in: ${{ steps.discover.outputs.api_url }}"
+            echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
+            echo "- Static Web App: ${{ steps.discover.outputs.static_web_app_name }}"
+            echo "- API base URL baked in: ${{ steps.discover.outputs.api_base_url }}"
+            echo "- URL: ${{ steps.app_url.outputs.static_web_app_url }}"
           } >> "$GITHUB_STEP_SUMMARY"
