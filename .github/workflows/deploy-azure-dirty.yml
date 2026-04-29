@@ -1,0 +1,87 @@
+name: deploy-azure-dirty
+
+# Fast path: skip Bicep, just rebuild the image with ACR Tasks and roll the
+# Container App. Use only when no infra changes are needed.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Discover ACR and Container App
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+
+          ACR_NAME=$(az resource list -g "$RG" \
+            --resource-type "Microsoft.ContainerRegistry/registries" \
+            --query "[0].name" -o tsv)
+          ACR_LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)
+
+          CA_NAME=$(az resource list -g "$RG" \
+            --resource-type "Microsoft.App/containerApps" \
+            --query "[0].name" -o tsv)
+
+          if [[ -z "$ACR_NAME" || -z "$CA_NAME" ]]; then
+            echo "Could not discover ACR or Container App in '$RG'." >&2
+            exit 1
+          fi
+
+          echo "acr_name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+          echo "acr_login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "ca_name=$CA_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image via ACR Tasks
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="$(echo "$GITHUB_SHA" | cut -c1-12)"
+          IMAGE_URI="${{ steps.discover.outputs.acr_login_server }}/naas:$IMAGE_TAG"
+
+          az acr build \
+            --registry "${{ steps.discover.outputs.acr_name }}" \
+            --image "naas:$IMAGE_TAG" \
+            --file docker/Dockerfile \
+            .
+
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Roll Container App image
+        shell: bash
+        run: |
+          az containerapp update \
+            --name "${{ steps.discover.outputs.ca_name }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ steps.build.outputs.image_uri }}" \
+            --output none
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "### Dirty deploy completed"
+            echo ""
+            echo "- Container App: ${{ steps.discover.outputs.ca_name }}"
+            echo "- Image: ${{ steps.build.outputs.image_uri }}"
+          } >> "$GITHUB_STEP_SUMMARY"

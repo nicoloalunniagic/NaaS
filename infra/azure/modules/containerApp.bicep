@@ -13,6 +13,9 @@ param userAssignedIdentityId string
 @description('Environment variables to inject into the container')
 param env array = []
 
+@description('Container App secrets. Each item is either { name, value } or { name, keyVaultUrl, identity } for Key Vault references.')
+param secrets array = []
+
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
@@ -37,6 +40,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: userAssignedIdentityId
         }
       ]
+      secrets: secrets
     }
     template: {
       containers: [

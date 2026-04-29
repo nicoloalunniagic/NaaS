@@ -47,6 +47,8 @@ jobs:
       - name: Deploy infra (bootstrap image)
         id: infra_bootstrap
         uses: azure/arm-deploy@v2
+        env:
+          DB_ADMIN_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}

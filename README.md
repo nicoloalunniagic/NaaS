@@ -125,3 +125,14 @@ Operational documentation and the editorial pre-merge checklist are available in
 Azure IaC documentation is available in [infra/azure/README.md](infra/azure/README.md).
 
 Automated Azure deployment is available in [.github/workflows/deploy-azure.yml](.github/workflows/deploy-azure.yml).
+
+The stack provisions a PostgreSQL Flexible Server and an Azure Key Vault.
+The database connection string is stored as a secret named
+`database-connection-string` in the vault. The Container App references it
+through a Key Vault secret reference (using the User-Assigned Managed Identity
+with the _Key Vault Secrets User_ role) and exposes it to the application as
+the `DATABASE_CONNECTION_STRING` environment variable.
+
+The Postgres administrator password is provided to the deployment via the
+`DB_ADMIN_PASSWORD` environment variable, which the workflow reads from the
+`DB_ADMIN_PASSWORD` GitHub secret.

@@ -50,6 +50,16 @@ param staticWebAppLocation string = 'westeurope'
 ])
 param staticWebAppSku string = 'Free'
 
+@description('Administrator login for the PostgreSQL Flexible Server')
+param dbAdministratorLogin string = 'naasadmin'
+
+@description('Administrator password for the PostgreSQL Flexible Server. Provide via secure parameter.')
+@secure()
+param dbAdministratorPassword string
+
+@description('Database name to create on the PostgreSQL server')
+param dbName string = 'naas'
+
 var tags = {
   app: 'no-as-a-service'
   managedBy: 'bicep'
@@ -91,6 +101,31 @@ module blobStorage './modules/blobStorage.bicep' = {
   }
 }
 
+module postgres './modules/postgresFlexible.bicep' = {
+  name: 'postgres'
+  params: {
+    name: '${namePrefix}-pg'
+    location: location
+    tags: tags
+    administratorLogin: dbAdministratorLogin
+    administratorLoginPassword: dbAdministratorPassword
+    databaseName: dbName
+  }
+}
+
+module keyVault './modules/keyVault.bicep' = {
+  name: 'keyVault'
+  params: {
+    name: '${namePrefix}-kv'
+    location: location
+    tags: tags
+    consumerPrincipalId: userAssignedIdentity.properties.principalId
+    secrets: {
+      'database-connection-string': postgres.outputs.connectionString
+    }
+  }
+}
+
 module containerApp './modules/containerApp.bicep' = {
   name: 'containerApp'
   params: {
@@ -105,6 +140,13 @@ module containerApp './modules/containerApp.bicep' = {
     maxReplicas: maxReplicas
     acrLoginServer: containerRegistry.outputs.loginServer
     userAssignedIdentityId: userAssignedIdentity.id
+    secrets: [
+      {
+        name: 'database-connection-string'
+        keyVaultUrl: '${keyVault.outputs.uri}secrets/database-connection-string'
+        identity: userAssignedIdentity.id
+      }
+    ]
     env: [
       {
         name: 'AZURE_STORAGE_ACCOUNT_NAME'
@@ -121,6 +163,10 @@ module containerApp './modules/containerApp.bicep' = {
       {
         name: 'CORS_ALLOWED_ORIGINS'
         value: staticWebApp.outputs.url
+      }
+      {
+        name: 'DATABASE_CONNECTION_STRING'
+        secretRef: 'database-connection-string'
       }
     ]
   }
@@ -150,3 +196,10 @@ output blobContainerName string = blobStorage.outputs.blobContainerName
 
 output staticWebAppName string = staticWebApp.outputs.name
 output staticWebAppUrl string = staticWebApp.outputs.url
+
+output postgresServerName string = postgres.outputs.serverName
+output postgresFqdn string = postgres.outputs.fullyQualifiedDomainName
+output postgresDatabaseName string = postgres.outputs.databaseName
+
+output keyVaultName string = keyVault.outputs.name
+output keyVaultUri string = keyVault.outputs.uri
