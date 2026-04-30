@@ -16,7 +16,7 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 30,
+                PermitLimit = 120,
                 Window = TimeSpan.FromMinutes(1)
             }));
     options.RejectionStatusCode = 429;
@@ -136,6 +136,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.UseCors(CorsPolicy);
+
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -145,8 +147,6 @@ app.Use(async (context, next) =>
 });
 
 app.UseRateLimiter();
-
-app.UseCors(CorsPolicy);
 
 var rejectionReasons = new[]
 {
