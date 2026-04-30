@@ -1,7 +1,7 @@
 using './main.bicep'
 
 param location = 'westeurope'
-param postgresLocation = 'italynorth'
+param postgresLocation = 'francecentral'
 param namePrefix = 'naasprod01'
 param containerImage = 'naasprod01acr.azurecr.io/naas:latest'
 param containerCpu = '0.5'
