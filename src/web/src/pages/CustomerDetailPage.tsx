@@ -69,7 +69,8 @@ export default function CustomerDetailPage() {
 			</p>
 			<h1>{customer.name}</h1>
 			<p className='muted'>
-				ID #{customer.id} · {customer.email ?? 'no email'} · created{' '}
+				ID #{customer.id} · CF {customer.codiceFiscale} ·{' '}
+				{customer.email ?? 'no email'} · created{' '}
 				{new Date(customer.createdAt).toLocaleString()}
 			</p>
 

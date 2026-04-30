@@ -42,7 +42,7 @@ public sealed class CustomersAndProjectsTests : IClassFixture<WebApplicationFact
 
         // Create a customer.
         var createCustomer = await client.PostAsJsonAsync("/customers",
-            new { name = "Acme Corp", email = "ops@acme.test" });
+            new { name = "Acme Corp", email = "ops@acme.test", codiceFiscale = "RSSMRA85M01H501Z" });
         Assert.Equal(HttpStatusCode.Created, createCustomer.StatusCode);
         var customer = await createCustomer.Content.ReadFromJsonAsync<JsonObject>();
         var customerId = customer!["id"]!.GetValue<int>();

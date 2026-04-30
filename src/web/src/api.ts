@@ -7,6 +7,7 @@ export interface Customer {
 	id: number
 	name: string
 	email: string | null
+	codiceFiscale: string
 	createdAt: string
 	projects?: Project[]
 }
@@ -22,6 +23,7 @@ export interface Project {
 export interface CustomerInput {
 	name: string
 	email?: string | null
+	codiceFiscale: string
 }
 
 export interface ProjectInput {

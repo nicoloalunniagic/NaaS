@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Customer, type CustomerInput } from '../api'
 
-const empty: CustomerInput = { name: '', email: '' }
+const empty: CustomerInput = { name: '', email: '', codiceFiscale: '' }
 
 export default function CustomersPage() {
 	const [items, setItems] = useState<Customer[]>([])
@@ -57,7 +57,11 @@ export default function CustomersPage() {
 
 	function startEdit(c: Customer) {
 		setEditing(c)
-		setForm({ name: c.name, email: c.email ?? '' })
+		setForm({
+			name: c.name,
+			email: c.email ?? '',
+			codiceFiscale: c.codiceFiscale
+		})
 	}
 
 	function cancelEdit() {
@@ -88,6 +92,20 @@ export default function CustomersPage() {
 						onChange={e => setForm({ ...form, email: e.target.value })}
 					/>
 				</label>
+				<label>
+					Codice Fiscale
+					<input
+						required
+						minLength={16}
+						maxLength={16}
+						pattern='[A-Za-z0-9]{16}'
+						title='16 alphanumeric characters'
+						value={form.codiceFiscale}
+						onChange={e =>
+							setForm({ ...form, codiceFiscale: e.target.value.toUpperCase() })
+						}
+					/>
+				</label>
 				<div className='actions'>
 					<button type='submit' className='primary'>
 						{editing ? 'Save' : 'Create'}
@@ -113,6 +131,7 @@ export default function CustomersPage() {
 						<th>ID</th>
 						<th>Name</th>
 						<th>Email</th>
+						<th>Codice Fiscale</th>
 						<th>Created</th>
 						<th></th>
 					</tr>
@@ -125,6 +144,7 @@ export default function CustomersPage() {
 								<Link to={`/customers/${c.id}`}>{c.name}</Link>
 							</td>
 							<td>{c.email ?? '—'}</td>
+							<td>{c.codiceFiscale}</td>
 							<td>{new Date(c.createdAt).toLocaleString()}</td>
 							<td className='actions'>
 								<button onClick={() => startEdit(c)}>Edit</button>
@@ -136,7 +156,7 @@ export default function CustomersPage() {
 					))}
 					{items.length === 0 && !loading && (
 						<tr>
-							<td colSpan={5} className='muted'>
+							<td colSpan={6} className='muted'>
 								No customers yet.
 							</td>
 						</tr>

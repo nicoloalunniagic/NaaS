@@ -258,10 +258,19 @@ customers.MapGet("/{id:int}", async (int id, AppDbContext db) =>
 
 customers.MapPost("", async (Customer input, AppDbContext db) =>
 {
-    if (string.IsNullOrWhiteSpace(input.Name))
-        return Results.BadRequest(new { status = "error", message = "Name is required." });
+    var validation = ValidateCustomer(input);
+    if (validation is not null) return validation;
 
-    var customer = new Customer { Name = input.Name.Trim(), Email = input.Email?.Trim() };
+    var name = input.Name.Trim();
+    var email = input.Email?.Trim();
+    var cf = input.CodiceFiscale.Trim().ToUpperInvariant();
+
+    if (await db.Customers.AnyAsync(c => c.CodiceFiscale == cf))
+        return Results.Conflict(new { status = "error", message = "A customer with this Codice Fiscale already exists." });
+    if (await db.Customers.AnyAsync(c => c.Name == name && c.Email == email))
+        return Results.Conflict(new { status = "error", message = "A customer with the same name and email already exists." });
+
+    var customer = new Customer { Name = name, Email = email, CodiceFiscale = cf };
     db.Customers.Add(customer);
     await db.SaveChangesAsync();
     return Results.Created($"/customers/{customer.Id}", customer);
@@ -272,11 +281,22 @@ customers.MapPut("/{id:int}", async (int id, Customer input, AppDbContext db) =>
 {
     var customer = await db.Customers.FindAsync(id);
     if (customer is null) return Results.NotFound();
-    if (string.IsNullOrWhiteSpace(input.Name))
-        return Results.BadRequest(new { status = "error", message = "Name is required." });
 
-    customer.Name = input.Name.Trim();
-    customer.Email = input.Email?.Trim();
+    var validation = ValidateCustomer(input);
+    if (validation is not null) return validation;
+
+    var name = input.Name.Trim();
+    var email = input.Email?.Trim();
+    var cf = input.CodiceFiscale.Trim().ToUpperInvariant();
+
+    if (await db.Customers.AnyAsync(c => c.Id != id && c.CodiceFiscale == cf))
+        return Results.Conflict(new { status = "error", message = "A customer with this Codice Fiscale already exists." });
+    if (await db.Customers.AnyAsync(c => c.Id != id && c.Name == name && c.Email == email))
+        return Results.Conflict(new { status = "error", message = "A customer with the same name and email already exists." });
+
+    customer.Name = name;
+    customer.Email = email;
+    customer.CodiceFiscale = cf;
     await db.SaveChangesAsync();
     return Results.Ok(customer);
 })
@@ -375,6 +395,18 @@ projects.MapDelete("/{id:int}", async (int id, AppDbContext db) =>
 .WithName("DeleteProject");
 
 app.Run();
+
+static IResult? ValidateCustomer(Customer input)
+{
+    if (string.IsNullOrWhiteSpace(input.Name))
+        return Results.BadRequest(new { status = "error", message = "Name is required." });
+    if (string.IsNullOrWhiteSpace(input.CodiceFiscale))
+        return Results.BadRequest(new { status = "error", message = "Codice Fiscale is required." });
+    var cf = input.CodiceFiscale.Trim();
+    if (cf.Length != 16 || !System.Text.RegularExpressions.Regex.IsMatch(cf, "^[A-Za-z0-9]{16}$"))
+        return Results.BadRequest(new { status = "error", message = "Codice Fiscale must be 16 alphanumeric characters." });
+    return null;
+}
 
 public partial class Program
 {

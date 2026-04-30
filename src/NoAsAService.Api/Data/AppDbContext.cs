@@ -17,7 +17,10 @@ public class AppDbContext : DbContext
             b.HasKey(c => c.Id);
             b.Property(c => c.Name).IsRequired().HasMaxLength(200);
             b.Property(c => c.Email).HasMaxLength(320);
+            b.Property(c => c.CodiceFiscale).IsRequired().HasMaxLength(16);
             b.HasIndex(c => c.Name);
+            b.HasIndex(c => c.CodiceFiscale).IsUnique();
+            b.HasIndex(c => new { c.Name, c.Email }).IsUnique();
         });
 
         modelBuilder.Entity<Project>(b =>
