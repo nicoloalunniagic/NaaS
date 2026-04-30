@@ -2,6 +2,22 @@
 // Empty string means same-origin (used in dev via Vite proxy and in prod
 // when SWA's `routes` proxy /api -> Container Apps).
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+const TOKEN_STORAGE_KEY = 'naas_auth_token'
+
+let authToken: string | null = localStorage.getItem(TOKEN_STORAGE_KEY)
+
+export function setAuthToken(token: string | null) {
+	authToken = token
+	if (token) {
+		localStorage.setItem(TOKEN_STORAGE_KEY, token)
+	} else {
+		localStorage.removeItem(TOKEN_STORAGE_KEY)
+	}
+}
+
+export function getAuthToken() {
+	return authToken
+}
 
 export interface Customer {
 	id: number
@@ -32,11 +48,33 @@ export interface ProjectInput {
 	customerId: number
 }
 
+export interface AuthRequest {
+	username: string
+	password: string
+}
+
+export interface AuthResponse {
+	token: string
+	expiresAt: string
+	username: string
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+	const headers = new Headers(init?.headers)
+	headers.set('Content-Type', 'application/json')
+	if (authToken) {
+		headers.set('Authorization', `Bearer ${authToken}`)
+	}
+
 	const res = await fetch(`${API_BASE}${path}`, {
-		headers: { 'Content-Type': 'application/json' },
+		headers,
 		...init
 	})
+
+	if (res.status === 401) {
+		throw new Error('Session expired or unauthorized. Please login again.')
+	}
+
 	if (!res.ok) {
 		let message = `HTTP ${res.status}`
 		try {
@@ -52,6 +90,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+	auth: {
+		register: (input: AuthRequest) =>
+			request<void>('/auth/register', {
+				method: 'POST',
+				body: JSON.stringify(input)
+			}),
+		login: (input: AuthRequest) =>
+			request<AuthResponse>('/auth/login', {
+				method: 'POST',
+				body: JSON.stringify(input)
+			})
+	},
 	customers: {
 		list: () => request<Customer[]>('/customers'),
 		get: (id: number) => request<Customer>(`/customers/${id}`),

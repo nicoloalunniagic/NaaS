@@ -10,8 +10,7 @@ Questa cartella contiene Infrastructure-as-Code per distribuire la web app su Az
 - `modules/containerApp.bicep`: modulo Azure Container App
 - `modules/blobStorage.bicep`: modulo Storage Account + container blob + RBAC upload
 - `modules/appInsights.bicep`: modulo opzionale Application Insights
-- `dev.bicepparam`: set parametri sviluppo
-- `prod.bicepparam`: set parametri produzione
+- `dev.bicepparam`: set parametri ambiente Azure usato dal workflow GitHub (`environment: dev`)
 
 ## Standard di modularizzazione Bicep
 
@@ -50,7 +49,7 @@ Forma consigliata del contratto modulo:
 - Nessun valore ambiente-specifico codificato in modo statico nei moduli
 - I nomi degli output sono stabili e significativi
 - I tag sono applicati in modo coerente
-- `dev.bicepparam` e `prod.bicepparam` restano entrambi validi
+- `dev.bicepparam` resta valido e allineato al workflow GitHub
 - Le assunzioni su deployment mode sono documentate quando cambiano
 
 ## Cosa viene distribuito
@@ -89,6 +88,7 @@ I file `.bicepparam` controllano il comportamento del deploy:
 | `maxReplicas`          | int    | `3`                        | Replica massime Container App (1-20)                          |
 | `deployAppInsights`    | bool   | `false`                    | Abilita Application Insights (aggiuntivo)                     |
 | `enableZoneRedundancy` | bool   | `false`                    | Abilita zone redundancy CAE (richiede subnet infrastruttura)  |
+| `jwtSigningKey`        | secure | -                          | Chiave usata per firmare i JWT (`JWT_SIGNING_KEY`)            |
 
 ## Prerequisiti
 
@@ -97,25 +97,6 @@ I file `.bicepparam` controllano il comportamento del deploy:
 - Subscription selezionata con `az account set --subscription <SUBSCRIPTION_ID>`
 
 ## Deploy infrastruttura
-
-```bash
-az group create --name rg-naas-dev --location westeurope
-
-az deployment group create \
-  --resource-group rg-naas-dev \
-  --template-file infra/azure/main.bicep \
-  --parameters @infra/azure/main.parameters.example.json
-```
-
-Oppure con file parametri Bicep:
-
-```bash
-az deployment group create \
-  --resource-group rg-naas-prod \
-  --parameters infra/azure/prod.bicepparam
-```
-
-Esempio dev:
 
 ```bash
 az deployment group create \
@@ -162,7 +143,7 @@ Il workflow fa le seguenti operazioni:
 
 - Esegue login su Azure con OIDC (`azure/login`)
 - Crea il resource group se necessario
-- Seleziona il file parametri in base al branch (`prod.bicepparam` su `main`, altrimenti `dev.bicepparam`)
+- Usa sempre `infra/azure/dev.bicepparam` (allineato all'environment GitHub `dev`)
 - Esegue deploy con un'immagine bootstrap temporanea
 - Esegue build e push dell'immagine app su ACR con tag derivato dal commit SHA
 - Riesegue il deploy Bicep con l'immagine pubblicata
@@ -178,5 +159,5 @@ Il workflow fa le seguenti operazioni:
 
 - Aggiungere custom domain e certificato per la Container App
 - Restringere l'ingress con allowlist IP o usare Azure Front Door/WAF
-- Spostare i parametri in file ambiente-specifici (dev/test/prod)
+- Spostare i parametri in file ambiente-specifici (dev/test/prod) se il progetto cresce oltre il contesto esercitazione
 - Aggiungere vulnerability scanning in CI prima del push

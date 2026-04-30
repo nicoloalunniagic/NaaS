@@ -49,6 +49,7 @@ services:
       AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=;BlobEndpoint=http://azurite:10000/devstoreaccount1;'
       AZURE_STORAGE_CONTAINER_NAME: uploads
       DATABASE_CONNECTION_STRING: 'Host=postgres;Port=5432;Database=naas;Username=naas;Password=naas'
+      JWT_SIGNING_KEY: 'dev-local-signing-key-change-for-real-env'
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:8000/']
       interval: 30s

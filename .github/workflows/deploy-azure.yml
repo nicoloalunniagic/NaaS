@@ -45,11 +45,7 @@ jobs:
         id: params
         shell: bash
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "params_file=infra/azure/prod.bicepparam" >> "$GITHUB_OUTPUT"
-          else
-            echo "params_file=infra/azure/dev.bicepparam" >> "$GITHUB_OUTPUT"
-          fi
+          echo "params_file=infra/azure/dev.bicepparam" >> "$GITHUB_OUTPUT"
 
       - name: Deploy infra (bootstrap image)
         if: ${{ inputs.skip_infra == false }}

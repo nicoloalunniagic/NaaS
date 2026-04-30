@@ -60,6 +60,10 @@ param dbAdministratorLogin string = 'naasadmin'
 @secure()
 param dbAdministratorPassword string
 
+@description('JWT signing key used to sign authentication tokens. Use a long random value.')
+@secure()
+param jwtSigningKey string
+
 @description('Database name to create on the PostgreSQL server')
 param dbName string = 'naas'
 
@@ -125,6 +129,7 @@ module keyVault './modules/keyVault.bicep' = {
     consumerPrincipalId: userAssignedIdentity.properties.principalId
     secrets: {
       'database-connection-string': postgres.outputs.connectionString
+      'jwt-signing-key': jwtSigningKey
     }
   }
 }
@@ -149,6 +154,11 @@ module containerApp './modules/containerApp.bicep' = {
         keyVaultUrl: '${keyVault.outputs.uri}secrets/database-connection-string'
         identity: userAssignedIdentity.id
       }
+      {
+        name: 'jwt-signing-key'
+        keyVaultUrl: '${keyVault.outputs.uri}secrets/jwt-signing-key'
+        identity: userAssignedIdentity.id
+      }
     ]
     env: [
       {
@@ -170,6 +180,10 @@ module containerApp './modules/containerApp.bicep' = {
       {
         name: 'DATABASE_CONNECTION_STRING'
         secretRef: 'database-connection-string'
+      }
+      {
+        name: 'JWT_SIGNING_KEY'
+        secretRef: 'jwt-signing-key'
       }
     ]
   }

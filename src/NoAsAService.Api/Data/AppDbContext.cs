@@ -6,11 +6,22 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    public DbSet<User> Users => Set<User>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Project> Projects => Set<Project>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>(b =>
+        {
+            b.ToTable("users");
+            b.HasKey(u => u.Id);
+            b.Property(u => u.Username).IsRequired().HasMaxLength(64);
+            b.Property(u => u.NormalizedUsername).IsRequired().HasMaxLength(64);
+            b.Property(u => u.PasswordHash).IsRequired().HasMaxLength(512);
+            b.HasIndex(u => u.NormalizedUsername).IsUnique();
+        });
+
         modelBuilder.Entity<Customer>(b =>
         {
             b.ToTable("customers");

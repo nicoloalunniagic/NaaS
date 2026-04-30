@@ -30,9 +30,14 @@ a:hover {
 nav.top {
 	display: flex;
 	gap: 16px;
+	align-items: center;
 	padding: 12px 24px;
 	background: #0f172a;
 	color: #f8fafc;
+}
+
+nav.top button {
+	margin-left: auto;
 }
 
 nav.top a {
@@ -148,4 +153,14 @@ select {
 .actions {
 	display: flex;
 	gap: 6px;
+}
+
+.auth-card {
+	max-width: 460px;
+	margin: 48px auto;
+	padding: 24px;
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
 }
