@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Random Rejection
+method: GET
+url: '{{baseUrl}}/reject'
+order: 2000

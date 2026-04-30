@@ -1,0 +1,16 @@
+$kind: http-request
+name: Create Project
+method: POST
+url: '{{baseUrl}}/projects'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "My Project",
+      "description": "A sample project",
+      "customerId": 1
+    }

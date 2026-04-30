@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Service Info
+method: GET
+url: '{{baseUrl}}/'
+order: 1000

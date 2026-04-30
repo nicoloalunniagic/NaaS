@@ -1,0 +1,19 @@
+$kind: http-request
+name: Update Customer
+method: PUT
+url: '{{baseUrl}}/customers/{{customerId}}'
+order: 4000
+pathVariables:
+  - key: customerId
+    value: '{{customerId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Acme Corp Updated",
+      "email": "acme@example.com",
+      "codiceFiscale": "ACMCPR80A01H501Z"
+    }

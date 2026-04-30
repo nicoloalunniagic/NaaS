@@ -1,0 +1,8 @@
+$kind: http-request
+name: List Customer Projects
+method: GET
+url: '{{baseUrl}}/customers/{{customerId}}/projects'
+order: 6000
+pathVariables:
+  - key: customerId
+    value: '{{customerId}}'

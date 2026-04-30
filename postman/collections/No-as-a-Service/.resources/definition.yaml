@@ -1,0 +1,9 @@
+$kind: collection
+name: No-as-a-Service
+variables:
+  - key: baseUrl
+    value: 'http://localhost:3000'
+  - key: customerId
+    value: '1'
+  - key: projectId
+    value: '1'
