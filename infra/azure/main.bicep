@@ -1,6 +1,9 @@
 @description('Azure region for all resources')
 param location string = resourceGroup().location
 
+@description('Location for PostgreSQL Flexible Server (some subscriptions are restricted in westeurope).')
+param postgresLocation string = location
+
 @description('Prefix used for Azure resource names. Use only lowercase letters and digits.')
 @minLength(3)
 @maxLength(12)
@@ -105,7 +108,7 @@ module postgres './modules/postgresFlexible.bicep' = {
   name: 'postgres'
   params: {
     name: '${namePrefix}-pg'
-    location: location
+    location: postgresLocation
     tags: tags
     administratorLogin: dbAdministratorLogin
     administratorLoginPassword: dbAdministratorPassword
