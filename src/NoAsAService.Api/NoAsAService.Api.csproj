@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>NoAsAService.Api</AssemblyName>
     <RootNamespace>NoAsAService.Api</RootNamespace>
+    <UserSecretsId>noasaservice-api-local-dev</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
