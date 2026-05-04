@@ -3,3 +3,6 @@ name: List Customers
 method: GET
 url: '{{baseUrl}}/customers'
 order: 1000
+headers:
+  - key: Authorization
+    value: Bearer {{authToken}}

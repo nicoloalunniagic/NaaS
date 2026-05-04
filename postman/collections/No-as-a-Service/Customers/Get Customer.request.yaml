@@ -6,3 +6,6 @@ order: 2000
 pathVariables:
   - key: customerId
     value: '{{customerId}}'
+headers:
+  - key: Authorization
+    value: Bearer {{authToken}}

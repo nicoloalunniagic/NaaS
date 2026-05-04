@@ -6,3 +6,6 @@ order: 5000
 pathVariables:
   - key: projectId
     value: '{{projectId}}'
+headers:
+  - key: Authorization
+    value: Bearer {{authToken}}

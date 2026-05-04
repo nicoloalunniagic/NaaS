@@ -3,3 +3,6 @@ name: List Projects
 method: GET
 url: '{{baseUrl}}/projects'
 order: 1000
+headers:
+  - key: Authorization
+    value: Bearer {{authToken}}
