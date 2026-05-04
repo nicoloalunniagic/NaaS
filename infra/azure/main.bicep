@@ -72,6 +72,16 @@ var tags = {
   managedBy: 'bicep'
 }
 
+// Validation: fail early if required secrets are missing.
+var validateSecrets = {
+  jwtKeyProvided: !empty(jwtSigningKey)
+  dbPasswordProvided: !empty(dbAdministratorPassword)
+}
+
+var validation = validateSecrets.jwtKeyProvided && validateSecrets.dbPasswordProvided
+  ? null
+  : error('Missing required secrets: JWT_SIGNING_KEY and/or DB_ADMIN_PASSWORD environment variables must be set. See infra/azure/README.md for details.')
+
 module foundation './foundation.bicep' = {
   name: 'foundation'
   params: {
