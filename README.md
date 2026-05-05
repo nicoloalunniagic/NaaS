@@ -72,7 +72,7 @@ and wired to the API via `DATABASE_CONNECTION_STRING`.
 
 ## Front-end (React + TypeScript)
 
-A Vite-based SPA in [src/web](src/web) provides full CRUD for customers and
+A Vite-based SPA in [src/web](src/web/package.json) provides full CRUD for customers and
 projects against the API.
 
 The SPA requires authentication before accessing customers/projects.
