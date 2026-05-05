@@ -14,7 +14,7 @@ public sealed class ApiEndpointsTests : IClassFixture<WebApplicationFactory<Prog
 
     public ApiEndpointsTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.WithWebHostBuilder(b => b.UseEnvironment("Development")).CreateClient();
+        _client = factory.WithWebHostBuilder(b => b.UseEnvironment("Testing")).CreateClient();
     }
 
     [Fact]

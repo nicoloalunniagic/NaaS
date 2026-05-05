@@ -42,7 +42,7 @@ var jwtSigningKey = builder.Configuration["JWT_SIGNING_KEY"];
 
 if (string.IsNullOrWhiteSpace(jwtSigningKey))
 {
-    if (builder.Environment.IsDevelopment())
+    if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
     {
         jwtSigningKey = "dev-only-super-secret-key-change-me-at-once";
     }
@@ -120,7 +120,12 @@ else if (!string.IsNullOrWhiteSpace(storageAccountName))
 // - If DATABASE_CONNECTION_STRING is set, use PostgreSQL (Npgsql).
 // - Otherwise fall back to an in-memory database (useful for tests/dev without a DB).
 var databaseConnectionString = builder.Configuration["DATABASE_CONNECTION_STRING"];
-if (!string.IsNullOrWhiteSpace(databaseConnectionString))
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseInMemoryDatabase("naas-testing"));
+}
+else if (!string.IsNullOrWhiteSpace(databaseConnectionString))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(databaseConnectionString, npgsql =>

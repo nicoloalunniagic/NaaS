@@ -67,6 +67,32 @@ Check:
 2. Send `Authorization: Bearer <token>`
 3. Ensure `JWT_SIGNING_KEY` is consistent between deployment and runtime
 
+## Test error: external PostgreSQL connection or DNS failure
+
+Symptom: `dotnet test` shows connection failures to external DB hosts
+(for example Azure PostgreSQL hostnames).
+
+Typical cause: development environment variables or user-secrets leaking into
+the test runtime.
+
+Check:
+
+1. Run tests without forcing `ASPNETCORE_ENVIRONMENT=Development`
+2. Ensure tests run in `Testing` environment
+3. Remove `DATABASE_CONNECTION_STRING` overrides in the test runner
+
+Note: in `Testing`, the API uses an in-memory DB and should not contact PostgreSQL.
+
+## Relational schema changes are not applied
+
+The app applies EF Core migrations (`Database.Migrate`) at startup.
+
+Check:
+
+1. Migrations exist in `src/NoAsAService.Api/Data/Migrations`
+2. Database user has required DDL permissions
+3. `DATABASE_CONNECTION_STRING` points to the expected database
+
 ## Azure deploy fails with missing JWT_SIGNING_KEY
 
 If `dev.bicepparam` uses `readEnvironmentVariable('JWT_SIGNING_KEY')`, deployment fails when the variable is not available in the Bicep process environment.

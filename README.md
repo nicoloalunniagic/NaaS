@@ -32,6 +32,9 @@ dotnet run --project src/NoAsAService.Api/NoAsAService.Api.csproj
 dotnet test src/tests/NoAsAService.Api.Tests/NoAsAService.Api.Tests.csproj -c Release
 ```
 
+Integration tests run the app in a dedicated `Testing` environment that uses
+an in-memory database and test-safe JWT defaults.
+
 ### Run with Docker
 
 ```bash
@@ -66,6 +69,9 @@ Configuration is done via the `DATABASE_CONNECTION_STRING` environment variable
 (Npgsql / PostgreSQL connection string). When the variable is not set, the API
 falls back to an in-memory provider so it can run without external dependencies
 (useful for tests and quick local runs).
+
+For relational databases, schema lifecycle is managed with EF Core migrations
+(`Database.Migrate`) at startup.
 
 When using `docker compose`, a PostgreSQL 16 instance is started automatically
 and wired to the API via `DATABASE_CONNECTION_STRING`.

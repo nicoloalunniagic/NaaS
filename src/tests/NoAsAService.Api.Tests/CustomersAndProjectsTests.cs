@@ -1,13 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using NoAsAService.Api.Data;
 using Xunit;
 
 namespace NoAsAService.Api.Tests;
@@ -15,30 +11,17 @@ namespace NoAsAService.Api.Tests;
 public sealed class CustomersAndProjectsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
-    private readonly string _dbName = $"naas-tests-{Guid.NewGuid()}";
-    private readonly InMemoryDatabaseRoot _dbRoot = new();
 
     public CustomersAndProjectsTests(WebApplicationFactory<Program> factory)
     {
-        // Replace the registered DbContext with an isolated in-memory database that
-        // shares a single InMemoryDatabaseRoot across all DbContext instances.
-        _factory = factory.WithWebHostBuilder(b =>
-        {
-            b.UseEnvironment("Development");
-            b.ConfigureServices(services =>
-            {
-                services.RemoveAll(typeof(DbContextOptions<AppDbContext>));
-                services.RemoveAll(typeof(DbContextOptions));
-                services.AddDbContext<AppDbContext>(o =>
-                    o.UseInMemoryDatabase(_dbName, _dbRoot));
-            });
-        });
+        _factory = factory.WithWebHostBuilder(b => b.UseEnvironment("Testing"));
     }
 
     [Fact]
     public async Task CustomerAndProject_FullLifecycle_Works()
     {
         var client = _factory.CreateClient();
+        await AuthenticateAsync(client);
 
         // Create a customer.
         var createCustomer = await client.PostAsJsonAsync("/customers",
@@ -78,6 +61,7 @@ public sealed class CustomersAndProjectsTests : IClassFixture<WebApplicationFact
     public async Task CreateProject_WithUnknownCustomer_ReturnsBadRequest()
     {
         var client = _factory.CreateClient();
+        await AuthenticateAsync(client);
 
         var response = await client.PostAsJsonAsync("/projects",
             new { name = "Orphan", customerId = 9999 });
@@ -89,9 +73,36 @@ public sealed class CustomersAndProjectsTests : IClassFixture<WebApplicationFact
     public async Task CreateCustomer_WithoutName_ReturnsBadRequest()
     {
         var client = _factory.CreateClient();
+        await AuthenticateAsync(client);
 
         var response = await client.PostAsJsonAsync("/customers", new { name = "" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private static async Task AuthenticateAsync(HttpClient client)
+    {
+        var username = $"testuser-{Guid.NewGuid():N}";
+        var password = "DevPassword123456";
+
+        var register = await client.PostAsJsonAsync("/auth/register", new
+        {
+            username,
+            password
+        });
+        Assert.Equal(HttpStatusCode.Created, register.StatusCode);
+
+        var login = await client.PostAsJsonAsync("/auth/login", new
+        {
+            username,
+            password
+        });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        var payload = await login.Content.ReadFromJsonAsync<JsonObject>();
+        var token = payload?["token"]?.GetValue<string>();
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 }
