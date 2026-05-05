@@ -5,6 +5,7 @@ Tiny ASP.NET Core API on .NET 10 with Docker support.
 ## What is included
 
 - Minimal HTTP API
+- JWT authentication (`/auth/register`, `/auth/login`)
 - File upload page at `/upload` (simple web UI)
 - Blob upload endpoint at `POST /upload`
 - Relational database (PostgreSQL) with `customers` and `projects` tables (1 customer → N projects), exposed via CRUD endpoints
@@ -42,33 +43,39 @@ docker compose -f docker/docker-compose.yml up --build
 - Home: `http://localhost:8000/`
 - Reject: `http://localhost:8000/reject`
 - Upload UI: `http://localhost:8000/upload`
-- Customers CRUD: `http://localhost:8000/customers`
-- Projects CRUD: `http://localhost:8000/projects`
-- Customer projects: `http://localhost:8000/customers/{id}/projects`
+- Auth register: `POST http://localhost:8000/auth/register`
+- Auth login: `POST http://localhost:8000/auth/login`
+- Customers CRUD: `http://localhost:8000/customers` (JWT required)
+- Projects CRUD: `http://localhost:8000/projects` (JWT required)
+- Customer projects: `http://localhost:8000/customers/{id}/projects` (JWT required)
 - OpenAPI: `http://localhost:8000/openapi/v1.json`
 - Swagger UI: `http://localhost:8000/docs`
 
 ## Database
 
-The API uses Entity Framework Core with two entities:
+The API uses Entity Framework Core with three entities:
 
-- `Customer` (id, name, email, createdAt)
+- `User` (id, username, normalizedUsername, passwordHash, createdAt)
+- `Customer` (id, name, email, codiceFiscale, createdAt)
 - `Project` (id, name, description, createdAt, customerId)
 
 The relation is 1-to-N (one customer, many projects) with cascade delete on the customer.
+Customers and projects are protected endpoints: call `/auth/login` first and send `Authorization: Bearer <token>`.
 
 Configuration is done via the `DATABASE_CONNECTION_STRING` environment variable
 (Npgsql / PostgreSQL connection string). When the variable is not set, the API
 falls back to an in-memory provider so it can run without external dependencies
 (useful for tests and quick local runs).
 
-When using `docker compose`, a PostgreSQL 17 instance is started automatically
+When using `docker compose`, a PostgreSQL 16 instance is started automatically
 and wired to the API via `DATABASE_CONNECTION_STRING`.
 
 ## Front-end (React + TypeScript)
 
 A Vite-based SPA in [src/web](src/web) provides full CRUD for customers and
 projects against the API.
+
+The SPA requires authentication before accessing customers/projects.
 
 ### Run locally
 
@@ -109,7 +116,9 @@ repository / environment variables:
 
 - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (OIDC)
 - `AZURE_RESOURCE_GROUP`
-- `AZURE_STATIC_WEB_APP_NAME` — the SWA resource name (e.g. `<prefix>-web`)
+
+The workflow discovers Static Web App and Container App resources directly
+from the resource group; no explicit `AZURE_STATIC_WEB_APP_NAME` variable is required.
 
 ## Repository essentials
 
@@ -128,11 +137,11 @@ Automated Azure deployment is available in [.github/workflows/deploy-azure.yml](
 
 The stack provisions a PostgreSQL Flexible Server and an Azure Key Vault.
 The database connection string is stored as a secret named
-`database-connection-string` in the vault. The Container App references it
-through a Key Vault secret reference (using the User-Assigned Managed Identity
-with the _Key Vault Secrets User_ role) and exposes it to the application as
-the `DATABASE_CONNECTION_STRING` environment variable.
+`database-connection-string` in the vault. The JWT key is stored as
+`jwt-signing-key`. The Container App references both through Key Vault secret
+references (using the User-Assigned Managed Identity with the _Key Vault
+Secrets User_ role) and exposes them to the application as
+`DATABASE_CONNECTION_STRING` and `JWT_SIGNING_KEY`.
 
-The Postgres administrator password is provided to the deployment via the
-`DB_ADMIN_PASSWORD` environment variable, which the workflow reads from the
-`DB_ADMIN_PASSWORD` GitHub secret.
+The deployment reads `DB_ADMIN_PASSWORD` and `JWT_SIGNING_KEY` from GitHub
+environment secrets.

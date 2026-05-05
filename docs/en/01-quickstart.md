@@ -22,8 +22,20 @@ docker compose -f docker/docker-compose.yml up --build
 - Home: <http://localhost:8000/>
 - Reject: <http://localhost:8000/reject>
 - Upload UI: <http://localhost:8000/upload>
+- Auth register (POST): <http://localhost:8000/auth/register>
+- Auth login (POST): <http://localhost:8000/auth/login>
 - Swagger UI: <http://localhost:8000/docs>
 - OpenAPI JSON: <http://localhost:8000/openapi/v1.json>
+- React web app: <http://localhost:5173>
+
+## Web app access
+
+With Docker Compose running:
+
+1. Open <http://localhost:5173>
+2. Register a user or login
+3. Let the UI store/use JWT automatically
+4. Access customers and projects
 
 ## Quick local upload test
 

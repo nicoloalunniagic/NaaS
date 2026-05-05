@@ -4,6 +4,52 @@
 
 Base URL locale: http://localhost:8000
 
+## Autenticazione
+
+Gli endpoint di clienti e progetti richiedono JWT.
+
+### POST /auth/register
+
+Registra un utente.
+
+Request body:
+
+```json
+{
+	"username": "devuser",
+	"password": "DevPassword123456"
+}
+```
+
+### POST /auth/login
+
+Effettua login e restituisce token JWT.
+
+Request body:
+
+```json
+{
+	"username": "devuser",
+	"password": "DevPassword123456"
+}
+```
+
+Esempio risposta 200:
+
+```json
+{
+	"token": "<jwt>",
+	"expiresAt": "2026-05-05T10:00:00Z",
+	"username": "devuser"
+}
+```
+
+Header richiesto per endpoint protetti:
+
+```text
+Authorization: Bearer <token>
+```
+
 ## GET /
 
 Restituisce i metadati del servizio.
@@ -12,8 +58,8 @@ Restituisce i metadati del servizio.
 
 ```json
 {
-  "service": "no-as-a-service",
-  "message": "Ask nicely and get creatively rejected."
+	"service": "no-as-a-service",
+	"message": "Ask nicely and get creatively rejected."
 }
 ```
 
@@ -25,8 +71,8 @@ Restituisce un rifiuto casuale.
 
 ```json
 {
-  "approved": false,
-  "reason": "Denied: Mercury is in retrograde and so is this request."
+	"approved": false,
+	"reason": "Denied: Mercury is in retrograde and so is this request."
 }
 ```
 
@@ -52,9 +98,9 @@ Carica un file su Blob Storage nel container configurato (default: `uploads`).
 
 ```json
 {
-  "status": "uploaded",
-  "blobName": "6151a71d455445df9d1d29be08cf76ee-esempio.txt",
-  "blobUrl": "http://azurite:10000/devstoreaccount1/uploads/6151a71d455445df9d1d29be08cf76ee-esempio.txt"
+	"status": "uploaded",
+	"blobName": "6151a71d455445df9d1d29be08cf76ee-esempio.txt",
+	"blobUrl": "http://azurite:10000/devstoreaccount1/uploads/6151a71d455445df9d1d29be08cf76ee-esempio.txt"
 }
 ```
 
@@ -66,7 +112,7 @@ Carica un file su Blob Storage nel container configurato (default: `uploads`).
 ## Errori
 
 Gli endpoint di upload possono restituire errori di validazione (`400`) o di configurazione storage (`503`).
-Gli altri endpoint dipendono principalmente dalla disponibilita' runtime/container.
+Gli endpoint protetti (`/customers`, `/projects`) restituiscono `401` se token mancante/non valido.
 
 ## OpenAPI
 

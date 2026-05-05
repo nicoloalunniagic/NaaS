@@ -13,7 +13,7 @@ Soluzioni:
 
 ```yaml
 ports:
-  - "8080:8000"
+  - '8080:8000'
 ```
 
 Nota: con Azurite attivo serve anche la porta `10000`.
@@ -56,6 +56,25 @@ Verifica che sia impostata una tra:
 - `AZURE_STORAGE_ACCOUNT_NAME` (Azure reale con managed identity)
 
 In locale con Docker Compose e' usata la connection string verso Azurite.
+
+## Endpoint clienti/progetti rispondono 401
+
+Causa tipica: token JWT mancante o non valido.
+
+Verifica:
+
+1. Esegui login su `/auth/login`
+2. Includi header `Authorization: Bearer <token>`
+3. Verifica che `JWT_SIGNING_KEY` sia coerente tra deploy e runtime
+
+## Errore su JWT_SIGNING_KEY mancante in deploy Azure
+
+Se `dev.bicepparam` usa `readEnvironmentVariable('JWT_SIGNING_KEY')`, il deploy fallisce se variabile non e' disponibile nel processo che compila Bicep.
+
+Con GitHub Actions imposta secret environment `dev`:
+
+- `JWT_SIGNING_KEY`
+- `DB_ADMIN_PASSWORD`
 
 ## Modifiche al codice non visibili
 
