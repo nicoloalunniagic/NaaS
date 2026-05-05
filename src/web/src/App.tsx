@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, Route, Routes, Navigate } from 'react-router-dom'
 import CustomersPage from './pages/CustomersPage'
 import CustomerDetailPage from './pages/CustomerDetailPage'
@@ -63,6 +63,13 @@ function AuthPage({
 	const [confirmPassword, setConfirmPassword] = useState('')
 	const [error, setError] = useState<string | null>(null)
 	const [loading, setLoading] = useState(false)
+
+	useEffect(() => {
+		setUsername('')
+		setPassword('')
+		setConfirmPassword('')
+		setError(null)
+	}, [mode])
 
 	async function submit(e: React.FormEvent) {
 		e.preventDefault()
