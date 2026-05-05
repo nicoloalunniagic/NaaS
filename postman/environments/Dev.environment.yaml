@@ -1,0 +1,10 @@
+name: Dev
+values:
+  - key: baseUrl
+    value: 'https://<dev-api-url>'
+  - key: authToken
+    value: ''
+  - key: customerId
+    value: '1'
+  - key: projectId
+    value: '1'

@@ -1,0 +1,33 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "username": "devuser",
+      "password": "DevPassword123456"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      let data = {};
+      try {
+        data = pm.response.json();
+      } catch (e) {
+        data = {};
+      }
+      if (data.token) {
+        pm.environment.set('authToken', data.token);
+        pm.test('authToken saved', function () {
+          pm.expect(pm.environment.get('authToken')).to.eql(data.token);
+        });
+      } else {
+        pm.test('login response contains token', function () {
+          pm.expect(data.token, 'token missing in login response').to.be.a('string').and.not.empty;
+        });
+      }
+    language: text/javascript
+order: 2000

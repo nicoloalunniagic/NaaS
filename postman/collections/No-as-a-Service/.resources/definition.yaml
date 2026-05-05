@@ -1,0 +1,7 @@
+$kind: collection
+description: VSCode/Postman import-ready collection
+variables:
+  baseUrl: http://localhost:8000
+  authToken: ""
+  customerId: "1"
+  projectId: "1"

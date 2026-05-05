@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "username": "devuser",
+      "password": "DevPassword123456"
+    }
+order: 1000
