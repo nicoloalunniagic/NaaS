@@ -7,7 +7,16 @@ on:
         description: 'Skip Bicep deploy (image-only fast path). Resources must already exist.'
         required: false
         type: boolean
+        default: true
+      skip_smoke:
+        description: 'Skip smoke test to reduce deploy time.'
+        required: false
+        type: boolean
         default: false
+
+concurrency:
+  group: deploy-azure-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -69,19 +78,33 @@ jobs:
         run: |
           set -euo pipefail
           RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
+
+          ACR_NAME_GUESS="${NAME_PREFIX}acr"
+          CONTAINER_APP_NAME_GUESS="${NAME_PREFIX}-api"
 
           if [[ -n "${{ steps.infra.outputs.containerRegistryName }}" ]]; then
             ACR_NAME="${{ steps.infra.outputs.containerRegistryName }}"
             ACR_LOGIN_SERVER="${{ steps.infra.outputs.containerRegistryLoginServer }}"
             CONTAINER_APP_NAME="${{ steps.infra.outputs.containerAppName }}"
           else
-            ACR_NAME=$(az resource list -g "$RG" \
-              --resource-type "Microsoft.ContainerRegistry/registries" \
-              --query "[0].name" -o tsv)
+            if az acr show -n "$ACR_NAME_GUESS" --query name -o tsv >/dev/null 2>&1; then
+              ACR_NAME="$ACR_NAME_GUESS"
+            else
+              ACR_NAME=$(az resource list -g "$RG" \
+                --resource-type "Microsoft.ContainerRegistry/registries" \
+                --query "[0].name" -o tsv)
+            fi
+
             ACR_LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)
-            CONTAINER_APP_NAME=$(az resource list -g "$RG" \
-              --resource-type "Microsoft.App/containerApps" \
-              --query "[0].name" -o tsv)
+
+            if az containerapp show -n "$CONTAINER_APP_NAME_GUESS" -g "$RG" --query name -o tsv >/dev/null 2>&1; then
+              CONTAINER_APP_NAME="$CONTAINER_APP_NAME_GUESS"
+            else
+              CONTAINER_APP_NAME=$(az resource list -g "$RG" \
+                --resource-type "Microsoft.App/containerApps" \
+                --query "[0].name" -o tsv)
+            fi
           fi
 
           if [[ -z "$ACR_NAME" || -z "$CONTAINER_APP_NAME" ]]; then
@@ -129,6 +152,7 @@ jobs:
           echo "container_app_url=https://$CONTAINER_APP_FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test deployed app
+        if: ${{ inputs.skip_smoke == false }}
         shell: bash
         run: |
           BASE_URL="${{ steps.app_url.outputs.container_app_url }}"
@@ -157,6 +181,7 @@ jobs:
             echo ""
             echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
             echo "- Skip infra: ${{ inputs.skip_infra }}"
+            echo "- Skip smoke: ${{ inputs.skip_smoke }}"
             echo "- Container App: ${{ steps.discover.outputs.container_app_name }}"
             echo "- Image: ${{ env.IMAGE_URI }}"
             echo "- URL: ${{ steps.app_url.outputs.container_app_url }}"

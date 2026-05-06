@@ -2,6 +2,16 @@ name: deploy-web
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_smoke:
+        description: 'Skip smoke test to reduce deploy time.'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-web-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -43,13 +53,26 @@ jobs:
         run: |
           set -euo pipefail
           RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
 
-          STATIC_WEB_APP_NAME=$(az resource list -g "$RG" \
-            --resource-type "Microsoft.Web/staticSites" \
-            --query "[0].name" -o tsv)
-          CONTAINER_APP_NAME=$(az resource list -g "$RG" \
-            --resource-type "Microsoft.App/containerApps" \
-            --query "[0].name" -o tsv)
+          STATIC_WEB_APP_NAME_GUESS="${NAME_PREFIX}-web"
+          CONTAINER_APP_NAME_GUESS="${NAME_PREFIX}-api"
+
+          if az staticwebapp show -n "$STATIC_WEB_APP_NAME_GUESS" -g "$RG" --query name -o tsv >/dev/null 2>&1; then
+            STATIC_WEB_APP_NAME="$STATIC_WEB_APP_NAME_GUESS"
+          else
+            STATIC_WEB_APP_NAME=$(az resource list -g "$RG" \
+              --resource-type "Microsoft.Web/staticSites" \
+              --query "[0].name" -o tsv)
+          fi
+
+          if az containerapp show -n "$CONTAINER_APP_NAME_GUESS" -g "$RG" --query name -o tsv >/dev/null 2>&1; then
+            CONTAINER_APP_NAME="$CONTAINER_APP_NAME_GUESS"
+          else
+            CONTAINER_APP_NAME=$(az resource list -g "$RG" \
+              --resource-type "Microsoft.App/containerApps" \
+              --query "[0].name" -o tsv)
+          fi
 
           if [[ -z "$STATIC_WEB_APP_NAME" || -z "$CONTAINER_APP_NAME" ]]; then
             echo "Could not find Static Web App or Container App in '$RG'." >&2
@@ -101,6 +124,7 @@ jobs:
           echo "static_web_app_url=https://$STATIC_WEB_APP_FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test deployed SPA
+        if: ${{ inputs.skip_smoke == false }}
         shell: bash
         run: |
           BASE_URL="${{ steps.app_url.outputs.static_web_app_url }}"
