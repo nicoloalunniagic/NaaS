@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       skip_smoke:
-        description: 'Skip smoke test to reduce deploy time.'
+        description: "Skip smoke test to reduce deploy time."
         required: false
         type: boolean
         default: false
@@ -32,8 +32,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: src/web/package-lock.json
 
       - name: Install dependencies
@@ -108,8 +108,8 @@ jobs:
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ steps.swa_token.outputs.token }}
-          action: 'upload'
-          app_location: 'src/web/dist'
+          action: "upload"
+          app_location: "src/web/dist"
           skip_app_build: true
           skip_api_build: true
 

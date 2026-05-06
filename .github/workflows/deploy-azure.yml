@@ -4,12 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       skip_infra:
-        description: 'Skip Bicep deploy (image-only fast path). Resources must already exist.'
+        description: "Skip Bicep deploy (image-only fast path). Resources must already
+          exist."
         required: false
         type: boolean
         default: true
       skip_smoke:
-        description: 'Skip smoke test to reduce deploy time.'
+        description: "Skip smoke test to reduce deploy time."
         required: false
         type: boolean
         default: false
