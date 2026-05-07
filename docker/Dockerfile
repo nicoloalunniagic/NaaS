@@ -8,7 +8,7 @@ COPY src/NoAsAService.Api/NoAsAService.Api.csproj ./src/NoAsAService.Api/
 RUN dotnet restore ./src/NoAsAService.Api/NoAsAService.Api.csproj
 
 COPY src/NoAsAService.Api/. ./src/NoAsAService.Api/
-RUN dotnet publish ./src/NoAsAService.Api/NoAsAService.Api.csproj -c $BUILD_CONFIGURATION -o /app/publish --no-restore /p:UseAppHost=false
+RUN dotnet publish ./src/NoAsAService.Api/NoAsAService.Api.csproj -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 
