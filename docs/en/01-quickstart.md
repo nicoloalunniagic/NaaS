@@ -21,7 +21,8 @@ docker compose -f docker/docker-compose.yml up --build
 
 - Home: <http://localhost:8000/>
 - Reject: <http://localhost:8000/reject>
-- Upload UI: <http://localhost:8000/upload>
+- Upload UI (public page): <http://localhost:8000/upload>
+- Upload endpoint (POST, JWT required): <http://localhost:8000/upload>
 - Auth register (POST): <http://localhost:8000/auth/register>
 - Auth login (POST): <http://localhost:8000/auth/login>
 - Swagger UI: <http://localhost:8000/docs>
@@ -39,10 +40,21 @@ With Docker Compose running:
 
 ## Quick local upload test
 
-With Docker Compose running, you can test file upload to Azurite:
+With Docker Compose running, `POST /upload` requires JWT. Login first, then upload:
 
 ```bash
-curl -X POST -F "file=@./README.md" http://localhost:8000/upload
+curl -X POST http://localhost:8000/auth/register \
+	-H "Content-Type: application/json" \
+	-d '{"username":"devuser","password":"DevPassword123456"}'
+
+TOKEN=$(curl -sS -X POST http://localhost:8000/auth/login \
+	-H "Content-Type: application/json" \
+	-d '{"username":"devuser","password":"DevPassword123456"}' \
+	| sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+
+curl -X POST -F "file=@./README.md" \
+	-H "Authorization: Bearer $TOKEN" \
+	http://localhost:8000/upload
 ```
 
 Expected response: JSON with `status=uploaded`, `blobName`, `blobUrl`.

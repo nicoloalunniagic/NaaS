@@ -61,6 +61,8 @@ In locale con Docker Compose e' usata la connection string verso Azurite.
 
 Causa tipica: token JWT mancante o non valido.
 
+Nota: anche `POST /upload` e' protetto e risponde `401` senza bearer token valido.
+
 Verifica:
 
 1. Esegui login su `/auth/login`

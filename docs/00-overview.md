@@ -41,7 +41,7 @@ webapp/
 - Endpoint `/auth/register` per registrare utenti
 - Endpoint `/auth/login` per ottenere JWT
 - Endpoint `GET /upload` che espone una pagina HTML per selezione file multipli
-- Endpoint `POST /upload` che carica file su Blob Storage (limite 50 MB per file)
+- Endpoint `POST /upload` che carica file su Blob Storage (limite 50 MB per file, JWT obbligatorio)
 - Endpoint `/customers` e `/projects` protetti da JWT
 - Documentazione Swagger UI disponibile su `/docs`
 

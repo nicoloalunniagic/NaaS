@@ -1,545 +1,479 @@
 {
-  "info": {
-    "name": "No-as-a-Service",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_postman_id": "f2830ba2-6192-4021-8778-47640e3fd91b",
-    "description": "VSCode/Postman import-ready collection"
-  },
-  "item": [
-    {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "Register",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"devuser\",\n  \"password\": \"DevPassword123456\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/auth/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "register"
-              ]
-            }
-          },
-          "id": "6ebb96c3-18cb-4726-9f53-4a8681b12c89",
-          "response": []
-        },
-        {
-          "name": "Login",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"devuser\",\n  \"password\": \"DevPassword123456\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "let data = {};",
-                  "try {",
-                  "  data = pm.response.json();",
-                  "} catch (e) {",
-                  "  data = {};",
-                  "}",
-                  "if (data.token) {",
-                  "  pm.environment.set('authToken', data.token);",
-                  "  pm.test('authToken saved', function () {",
-                  "    pm.expect(pm.environment.get('authToken')).to.eql(data.token);",
-                  "  });",
-                  "} else {",
-                  "  pm.test('login response contains token', function () {",
-                  "    pm.expect(data.token, 'token missing in login response').to.be.a('string').and.not.empty;",
-                  "  });",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "id": "48b14ca7-2f32-43bf-8923-10a832e42dab",
-          "response": []
-        }
-      ],
-      "id": "ea07a5bc-8dea-41ed-ad79-b457a2733a05"
-    },
-    {
-      "name": "Core",
-      "item": [
-        {
-          "name": "Get Service Info",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": []
-            }
-          },
-          "id": "e19cab4c-eaf5-4ca7-9695-9b400e5800b6",
-          "response": []
-        },
-        {
-          "name": "Get Random Rejection",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/reject",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "reject"
-              ]
-            }
-          },
-          "id": "290f686f-1fa1-4810-a2f6-dbcc321d4cdc",
-          "response": []
-        },
-        {
-          "name": "Upload File",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": ""
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{baseUrl}}/upload",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "upload"
-              ]
-            }
-          },
-          "id": "c260d4c9-2748-4786-9dc7-63ad2384017f",
-          "response": []
-        }
-      ],
-      "id": "ae4cdcb4-21a3-4727-9399-a4eb18ed58b4"
-    },
-    {
-      "name": "Customers",
-      "item": [
-        {
-          "name": "List Customers",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/customers",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "customers"
-              ]
-            }
-          },
-          "id": "8833b5c1-5066-4903-811b-a4a9d99c5cc4",
-          "response": []
-        },
-        {
-          "name": "Get Customer",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/customers/{{customerId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "customers",
-                "{{customerId}}"
-              ]
-            }
-          },
-          "id": "f96e8da6-007f-4c18-9065-05a149639874",
-          "response": []
-        },
-        {
-          "name": "Create Customer",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Corp\",\n  \"email\": \"acme@example.com\",\n  \"codiceFiscale\": \"ACMCPR80A01H501Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/customers",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "customers"
-              ]
-            }
-          },
-          "id": "b12f288e-9ff6-442d-838c-6b166b2bef81",
-          "response": []
-        },
-        {
-          "name": "Update Customer",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Corp Updated\",\n  \"email\": \"acme@example.com\",\n  \"codiceFiscale\": \"ACMCPR80A01H501Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/customers/{{customerId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "customers",
-                "{{customerId}}"
-              ]
-            }
-          },
-          "id": "7a396882-5f5f-4d7a-9395-4ce276ae3ace",
-          "response": []
-        },
-        {
-          "name": "Delete Customer",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/customers/{{customerId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "customers",
-                "{{customerId}}"
-              ]
-            }
-          },
-          "id": "dc468093-1afe-4864-b659-79946aeb18db",
-          "response": []
-        },
-        {
-          "name": "List Customer Projects",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/customers/{{customerId}}/projects",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "customers",
-                "{{customerId}}",
-                "projects"
-              ]
-            }
-          },
-          "id": "9d74dcd7-051f-4212-bbf8-d90415a3f7e3",
-          "response": []
-        }
-      ],
-      "id": "308111f5-ded9-4ffa-94d1-e9489691619e"
-    },
-    {
-      "name": "Projects",
-      "item": [
-        {
-          "name": "List Projects",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/projects",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "projects"
-              ]
-            }
-          },
-          "id": "5b2b67ee-70cc-4a33-8096-09957239db29",
-          "response": []
-        },
-        {
-          "name": "Get Project",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/projects/{{projectId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "projects",
-                "{{projectId}}"
-              ]
-            }
-          },
-          "id": "3584c638-29d2-46a1-8a49-fb009b4b2995",
-          "response": []
-        },
-        {
-          "name": "Create Project",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"My Project\",\n  \"description\": \"A sample project\",\n  \"customerId\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/projects",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "projects"
-              ]
-            }
-          },
-          "id": "5947e2f6-318c-40f9-8e67-ffda2c8431f9",
-          "response": []
-        },
-        {
-          "name": "Update Project",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"My Project Updated\",\n  \"description\": \"Updated description\",\n  \"customerId\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/projects/{{projectId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "projects",
-                "{{projectId}}"
-              ]
-            }
-          },
-          "id": "4c022882-7a24-4723-aeac-e826d0f2173e",
-          "response": []
-        },
-        {
-          "name": "Delete Project",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/projects/{{projectId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "projects",
-                "{{projectId}}"
-              ]
-            }
-          },
-          "id": "810f8854-d6ba-47dc-ab67-5fe51dd37fcf",
-          "response": []
-        }
-      ],
-      "id": "ad3feaa4-7bb0-4132-b3b5-a1d01758a0eb"
-    }
-  ],
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8000",
-      "type": "string"
-    },
-    {
-      "key": "authToken",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "customerId",
-      "value": "1",
-      "type": "string"
-    },
-    {
-      "key": "projectId",
-      "value": "1",
-      "type": "string"
-    }
-  ],
-  "event": [],
-  "protocolProfileBehavior": {},
-  "_postman_variable_scope": "collection",
-  "_postman_exported_at": "2026-05-05T15:43:05.540Z",
-  "_postman_exported_using": "Postman/10.0 (generated)"
+	"info": {
+		"name": "No-as-a-Service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_postman_id": "f2830ba2-6192-4021-8778-47640e3fd91b",
+		"description": "VSCode/Postman import-ready collection"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"devuser\",\n  \"password\": \"DevPassword123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "register"]
+						}
+					},
+					"id": "6ebb96c3-18cb-4726-9f53-4a8681b12c89",
+					"response": []
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"devuser\",\n  \"password\": \"DevPassword123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"let data = {};",
+									"try {",
+									"  data = pm.response.json();",
+									"} catch (e) {",
+									"  data = {};",
+									"}",
+									"if (data.token) {",
+									"  pm.environment.set('authToken', data.token);",
+									"  pm.test('authToken saved', function () {",
+									"    pm.expect(pm.environment.get('authToken')).to.eql(data.token);",
+									"  });",
+									"} else {",
+									"  pm.test('login response contains token', function () {",
+									"    pm.expect(data.token, 'token missing in login response').to.be.a('string').and.not.empty;",
+									"  });",
+									"}"
+								]
+							}
+						}
+					],
+					"id": "48b14ca7-2f32-43bf-8923-10a832e42dab",
+					"response": []
+				}
+			],
+			"id": "ea07a5bc-8dea-41ed-ad79-b457a2733a05"
+		},
+		{
+			"name": "Core",
+			"item": [
+				{
+					"name": "Get Service Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/",
+							"host": ["{{baseUrl}}"],
+							"path": []
+						}
+					},
+					"id": "e19cab4c-eaf5-4ca7-9695-9b400e5800b6",
+					"response": []
+				},
+				{
+					"name": "Get Random Rejection",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reject",
+							"host": ["{{baseUrl}}"],
+							"path": ["reject"]
+						}
+					},
+					"id": "290f686f-1fa1-4810-a2f6-dbcc321d4cdc",
+					"response": []
+				},
+				{
+					"name": "Upload File",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": ""
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/upload",
+							"host": ["{{baseUrl}}"],
+							"path": ["upload"]
+						}
+					},
+					"id": "c260d4c9-2748-4786-9dc7-63ad2384017f",
+					"response": []
+				}
+			],
+			"id": "ae4cdcb4-21a3-4727-9399-a4eb18ed58b4"
+		},
+		{
+			"name": "Customers",
+			"item": [
+				{
+					"name": "List Customers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/customers",
+							"host": ["{{baseUrl}}"],
+							"path": ["customers"]
+						}
+					},
+					"id": "8833b5c1-5066-4903-811b-a4a9d99c5cc4",
+					"response": []
+				},
+				{
+					"name": "Get Customer",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/customers/{{customerId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["customers", "{{customerId}}"]
+						}
+					},
+					"id": "f96e8da6-007f-4c18-9065-05a149639874",
+					"response": []
+				},
+				{
+					"name": "Create Customer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme Corp\",\n  \"email\": \"acme@example.com\",\n  \"codiceFiscale\": \"ACMCPR80A01H501Z\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/customers",
+							"host": ["{{baseUrl}}"],
+							"path": ["customers"]
+						}
+					},
+					"id": "b12f288e-9ff6-442d-838c-6b166b2bef81",
+					"response": []
+				},
+				{
+					"name": "Update Customer",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme Corp Updated\",\n  \"email\": \"acme@example.com\",\n  \"codiceFiscale\": \"ACMCPR80A01H501Z\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/customers/{{customerId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["customers", "{{customerId}}"]
+						}
+					},
+					"id": "7a396882-5f5f-4d7a-9395-4ce276ae3ace",
+					"response": []
+				},
+				{
+					"name": "Delete Customer",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/customers/{{customerId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["customers", "{{customerId}}"]
+						}
+					},
+					"id": "dc468093-1afe-4864-b659-79946aeb18db",
+					"response": []
+				},
+				{
+					"name": "List Customer Projects",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/customers/{{customerId}}/projects",
+							"host": ["{{baseUrl}}"],
+							"path": ["customers", "{{customerId}}", "projects"]
+						}
+					},
+					"id": "9d74dcd7-051f-4212-bbf8-d90415a3f7e3",
+					"response": []
+				}
+			],
+			"id": "308111f5-ded9-4ffa-94d1-e9489691619e"
+		},
+		{
+			"name": "Projects",
+			"item": [
+				{
+					"name": "List Projects",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/projects",
+							"host": ["{{baseUrl}}"],
+							"path": ["projects"]
+						}
+					},
+					"id": "5b2b67ee-70cc-4a33-8096-09957239db29",
+					"response": []
+				},
+				{
+					"name": "Get Project",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/projects/{{projectId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["projects", "{{projectId}}"]
+						}
+					},
+					"id": "3584c638-29d2-46a1-8a49-fb009b4b2995",
+					"response": []
+				},
+				{
+					"name": "Create Project",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"My Project\",\n  \"description\": \"A sample project\",\n  \"customerId\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/projects",
+							"host": ["{{baseUrl}}"],
+							"path": ["projects"]
+						}
+					},
+					"id": "5947e2f6-318c-40f9-8e67-ffda2c8431f9",
+					"response": []
+				},
+				{
+					"name": "Update Project",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"My Project Updated\",\n  \"description\": \"Updated description\",\n  \"customerId\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/projects/{{projectId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["projects", "{{projectId}}"]
+						}
+					},
+					"id": "4c022882-7a24-4723-aeac-e826d0f2173e",
+					"response": []
+				},
+				{
+					"name": "Delete Project",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/projects/{{projectId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["projects", "{{projectId}}"]
+						}
+					},
+					"id": "810f8854-d6ba-47dc-ab67-5fe51dd37fcf",
+					"response": []
+				}
+			],
+			"id": "ad3feaa4-7bb0-4132-b3b5-a1d01758a0eb"
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "customerId",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "projectId",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"event": [],
+	"protocolProfileBehavior": {},
+	"_postman_variable_scope": "collection",
+	"_postman_exported_at": "2026-05-05T15:43:05.540Z",
+	"_postman_exported_using": "Postman/10.0 (generated)"
 }

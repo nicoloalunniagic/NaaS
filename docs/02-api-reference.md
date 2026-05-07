@@ -6,7 +6,7 @@ Base URL locale: http://localhost:8000
 
 ## Autenticazione
 
-Gli endpoint di clienti e progetti richiedono JWT.
+Gli endpoint di clienti, progetti e `POST /upload` richiedono JWT.
 
 ### POST /auth/register
 
@@ -93,6 +93,7 @@ Carica un file su Blob Storage nel container configurato (default: `uploads`).
 - Content-Type: `multipart/form-data`
 - Campo file richiesto: `file`
 - Limite: 50 MB per file
+- Header richiesto: `Authorization: Bearer <token>`
 
 ### Esempio risposta 200
 
@@ -107,12 +108,13 @@ Carica un file su Blob Storage nel container configurato (default: `uploads`).
 ### Possibili errori
 
 - `400 BadRequest`: file mancante/vuoto o oltre limite
+- `401 Unauthorized`: token JWT mancante o non valido
 - `503 ServiceUnavailable`: storage non configurato
 
 ## Errori
 
 Gli endpoint di upload possono restituire errori di validazione (`400`) o di configurazione storage (`503`).
-Gli endpoint protetti (`/customers`, `/projects`) restituiscono `401` se token mancante/non valido.
+Gli endpoint protetti (`/customers`, `/projects`, `POST /upload`) restituiscono `401` se token mancante/non valido.
 
 ## OpenAPI
 

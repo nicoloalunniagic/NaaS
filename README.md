@@ -7,7 +7,7 @@ Tiny ASP.NET Core API on .NET 10 with Docker support.
 - Minimal HTTP API
 - JWT authentication (`/auth/register`, `/auth/login`)
 - File upload page at `/upload` (simple web UI)
-- Blob upload endpoint at `POST /upload`
+- Blob upload endpoint at `POST /upload` (JWT required)
 - Relational database (PostgreSQL) with `customers` and `projects` tables (1 customer → N projects), exposed via CRUD endpoints
 - OpenAPI JSON at `/openapi/v1.json`
 - Swagger UI at `/docs`
@@ -45,7 +45,8 @@ docker compose -f docker/docker-compose.yml up --build
 
 - Home: `http://localhost:8000/`
 - Reject: `http://localhost:8000/reject`
-- Upload UI: `http://localhost:8000/upload`
+- Upload UI (public page): `http://localhost:8000/upload`
+- Upload endpoint: `POST http://localhost:8000/upload` (JWT required)
 - Auth register: `POST http://localhost:8000/auth/register`
 - Auth login: `POST http://localhost:8000/auth/login`
 - Customers CRUD: `http://localhost:8000/customers` (JWT required)
@@ -63,7 +64,7 @@ The API uses Entity Framework Core with three entities:
 - `Project` (id, name, description, createdAt, customerId)
 
 The relation is 1-to-N (one customer, many projects) with cascade delete on the customer.
-Customers and projects are protected endpoints: call `/auth/login` first and send `Authorization: Bearer <token>`.
+Customers, projects, and `POST /upload` are protected endpoints: call `/auth/login` first and send `Authorization: Bearer <token>`.
 
 Configuration is done via the `DATABASE_CONNECTION_STRING` environment variable
 (Npgsql / PostgreSQL connection string). When the variable is not set, the API

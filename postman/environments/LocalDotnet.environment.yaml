@@ -1,10 +1,10 @@
 name: LocalDotnet
 values:
   - key: baseUrl
-    value: "http://localhost:5000"
+    value: 'http://localhost:5000'
   - key: authToken
-    value: ""
+    value: ''
   - key: customerId
-    value: "1"
+    value: '1'
   - key: projectId
-    value: "1"
+    value: '1'

@@ -421,6 +421,7 @@ app.MapPost("/upload", async (IFormFile? file, [FromServices] BlobServiceClient?
         blobUrl = blobUri.ToString()
     });
 })
+.RequireAuthorization()
 .WithName("UploadFile")
 .DisableAntiforgery();
 

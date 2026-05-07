@@ -5,6 +5,7 @@ This folder contains files directly importable by Postman Desktop/Web:
 - `No-as-a-Service.postman_collection.json`
 - `Local.postman_environment.json`
 - `Dev.postman_environment.json`
+- `LocalDotnet.postman_environment.json`
 
 Import options:
 
@@ -14,5 +15,7 @@ Import options:
 After import:
 
 1. Select `Local` for localhost usage, or `Dev` for deployed Azure usage.
-2. In `Dev`, set `baseUrl` to your real API URL (replace `https://<dev-api-url>`).
-3. Run `Auth -> Login`; the login test script stores JWT into `authToken` automatically.
+2. For `dotnet run` without Docker, select `LocalDotnet` (base URL `http://localhost:5000`).
+3. In `Dev`, set `baseUrl` to your real API URL (replace `https://<dev-api-url>`).
+4. Run `Auth -> Login`; the login test script stores JWT into `authToken` automatically.
+5. Run protected requests (`/customers`, `/projects`, `POST /upload`) only after login.

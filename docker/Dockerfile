@@ -14,6 +14,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 
 WORKDIR /app
 
+RUN apk add --no-cache krb5-libs
+
 ENV ASPNETCORE_URLS=http://+:8000
 
 COPY --from=build /app/publish .
