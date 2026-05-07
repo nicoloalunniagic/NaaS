@@ -18,3 +18,16 @@ artifacts/
 
 .DS_Store
 Thumbs.db
+
+# Local-only infra parameter files (secrets)
+infra/azure/*.local.bicepparam
+
+# Node/Frontend artifacts
+node_modules/
+dist/
+src/web/dist/
+
+# Local environment files
+.env
+.env.*
+!.env.example
