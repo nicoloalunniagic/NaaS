@@ -22,7 +22,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"username\": \"devuser\",\n  \"password\": \"DevPassword123456\"\n}",
+							"raw": "{\n  \"username\": \"{{authUsername}}\",\n  \"password\": \"{{authPassword}}\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -35,6 +35,22 @@
 							"path": ["auth", "register"]
 						}
 					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (!pm.environment.get('authUsername')) {",
+									"  pm.environment.set('authUsername', 'devuser');",
+									"}",
+									"if (!pm.environment.get('authPassword')) {",
+									"  pm.environment.set('authPassword', 'DevPassword123456');",
+									"}"
+								]
+							}
+						}
+					],
 					"id": "6ebb96c3-18cb-4726-9f53-4a8681b12c89",
 					"response": []
 				},
@@ -51,7 +67,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"username\": \"devuser\",\n  \"password\": \"DevPassword123456\"\n}",
+							"raw": "{\n  \"username\": \"{{authUsername}}\",\n  \"password\": \"{{authPassword}}\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -66,24 +82,92 @@
 					},
 					"event": [
 						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (!pm.environment.get('authUsername')) {",
+									"  pm.environment.set('authUsername', 'devuser');",
+									"}",
+									"if (!pm.environment.get('authPassword')) {",
+									"  pm.environment.set('authPassword', 'DevPassword123456');",
+									"}"
+								]
+							}
+						},
+						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"let data = {};",
-									"try {",
-									"  data = pm.response.json();",
-									"} catch (e) {",
-									"  data = {};",
+									"const username = pm.environment.get('authUsername') || 'devuser';",
+									"const password = pm.environment.get('authPassword') || 'DevPassword123456';",
+									"",
+									"function parseBody(response) {",
+									"  try {",
+									"    return response.json();",
+									"  } catch (e) {",
+									"    return {};",
+									"  }",
 									"}",
-									"if (data.token) {",
-									"  pm.environment.set('authToken', data.token);",
-									"  pm.test('authToken saved', function () {",
-									"    pm.expect(pm.environment.get('authToken')).to.eql(data.token);",
+									"",
+									"function saveTokenFromResponse(response) {",
+									"  const body = parseBody(response);",
+									"  pm.test('login response contains token', function () {",
+									"    pm.expect(body.token, 'token missing in login response').to.be.a('string').and.not.empty;",
+									"  });",
+									"",
+									"  if (body.token) {",
+									"    pm.environment.set('authToken', body.token);",
+									"    pm.test('authToken saved', function () {",
+									"      pm.expect(pm.environment.get('authToken')).to.eql(body.token);",
+									"    });",
+									"  }",
+									"}",
+									"",
+									"if (pm.response.code === 200) {",
+									"  saveTokenFromResponse(pm.response);",
+									"} else if (pm.response.code === 401) {",
+									"  pm.environment.unset('authToken');",
+									"",
+									"  pm.sendRequest({",
+									"    url: `${pm.environment.get('baseUrl')}/auth/register`,",
+									"    method: 'POST',",
+									"    header: { 'Content-Type': 'application/json' },",
+									"    body: {",
+									"      mode: 'raw',",
+									"      raw: JSON.stringify({ username, password })",
+									"    }",
+									"  }, function (registerErr, registerRes) {",
+									"    pm.test('register for auth bootstrap succeeds or already exists', function () {",
+									"      pm.expect(registerErr).to.eql(null);",
+									"      pm.expect([201, 409]).to.include(registerRes ? registerRes.code : undefined);",
+									"    });",
+									"",
+									"    pm.sendRequest({",
+									"      url: `${pm.environment.get('baseUrl')}/auth/login`,",
+									"      method: 'POST',",
+									"      header: { 'Content-Type': 'application/json' },",
+									"      body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({ username, password })",
+									"      }",
+									"    }, function (loginErr, loginRes) {",
+									"      pm.test('login retry succeeds after register', function () {",
+									"        pm.expect(loginErr).to.eql(null);",
+									"        pm.expect(loginRes ? loginRes.code : undefined).to.eql(200);",
+									"      });",
+									"",
+									"      if (loginRes && loginRes.code === 200) {",
+									"        saveTokenFromResponse(loginRes);",
+									"      }",
+									"    });",
 									"  });",
 									"} else {",
-									"  pm.test('login response contains token', function () {",
-									"    pm.expect(data.token, 'token missing in login response').to.be.a('string').and.not.empty;",
+									"  const body = parseBody(pm.response);",
+									"  pm.environment.unset('authToken');",
+									"  pm.test('login request status is expected', function () {",
+									"    pm.expect(pm.response.code, `unexpected login status with body: ${JSON.stringify(body)}`).to.eql(200);",
 									"  });",
 									"}"
 								]

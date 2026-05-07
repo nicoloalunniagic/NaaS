@@ -1,10 +1,14 @@
 name: Local
 values:
   - key: baseUrl
-    value: 'http://localhost:8000'
+    value: "http://localhost:8000"
+  - key: authUsername
+    value: "devuser"
+  - key: authPassword
+    value: "DevPassword123456"
   - key: authToken
-    value: ''
+    value: ""
   - key: customerId
-    value: '1'
+    value: "1"
   - key: projectId
-    value: '1'
+    value: "1"

@@ -1,10 +1,14 @@
 name: Dev
 values:
   - key: baseUrl
-    value: 'https://<dev-api-url>'
+    value: "https://<dev-api-url>"
+  - key: authUsername
+    value: "devuser"
+  - key: authPassword
+    value: "DevPassword123456"
   - key: authToken
-    value: ''
+    value: ""
   - key: customerId
-    value: '1'
+    value: "1"
   - key: projectId
-    value: '1'
+    value: "1"

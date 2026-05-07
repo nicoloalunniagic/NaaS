@@ -7,7 +7,17 @@ body:
   type: json
   content: |-
     {
-      "username": "devuser",
-      "password": "DevPassword123456"
+      "username": "{{authUsername}}",
+      "password": "{{authPassword}}"
     }
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (!pm.environment.get('authUsername')) {
+        pm.environment.set('authUsername', 'devuser');
+      }
+      if (!pm.environment.get('authPassword')) {
+        pm.environment.set('authPassword', 'DevPassword123456');
+      }
+    language: text/javascript
 order: 1000

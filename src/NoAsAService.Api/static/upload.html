@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Upload – No-as-a-Service</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       background: #1a1a2e;
@@ -120,15 +127,56 @@
       font-weight: 600;
     }
 
-    .status-pending  { color: #888; }
-    .status-uploading { color: #f0a500; }
-    .status-done     { color: #4caf82; }
-    .status-error    { color: #f44; }
+    .status-pending {
+      color: #888;
+    }
+
+    .status-uploading {
+      color: #f0a500;
+    }
+
+    .status-done {
+      color: #4caf82;
+    }
+
+    .status-error {
+      color: #f44;
+    }
 
     .actions {
       margin-top: 24px;
       display: flex;
       gap: 12px;
+    }
+
+    .auth {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .auth label {
+      font-size: 0.85rem;
+      color: #9aa0aa;
+    }
+
+    .auth input {
+      width: 100%;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      background: #0d1e36;
+      color: #e0e0e0;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+    }
+
+    .auth input::placeholder {
+      color: #667;
+    }
+
+    .auth-hint {
+      font-size: 0.8rem;
+      color: #888;
     }
 
     button {
@@ -142,7 +190,10 @@
       transition: opacity 0.2s;
     }
 
-    button:disabled { opacity: 0.4; cursor: default; }
+    button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
 
     #btn-upload {
       background: #61dafb;
@@ -154,8 +205,13 @@
       color: #e0e0e0;
     }
 
-    #btn-upload:not(:disabled):hover { opacity: 0.85; }
-    #btn-clear:not(:disabled):hover  { opacity: 0.75; }
+    #btn-upload:not(:disabled):hover {
+      opacity: 0.85;
+    }
+
+    #btn-clear:not(:disabled):hover {
+      opacity: 0.75;
+    }
 
     #summary {
       margin-top: 20px;
@@ -172,10 +228,17 @@
       text-align: center;
     }
 
-    footer a { color: #61dafb; text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
+    footer a {
+      color: #61dafb;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
+
 <body>
 
   <header>
@@ -193,6 +256,12 @@
 
     <div id="file-list"></div>
 
+    <div class="auth">
+      <label for="jwt-token">JWT bearer token</label>
+      <input id="jwt-token" type="password" placeholder="Paste token from /auth/login" autocomplete="off" />
+      <p class="auth-hint">Token is saved in this browser only and sent as Authorization: Bearer &lt;token&gt;.</p>
+    </div>
+
     <div class="actions">
       <button id="btn-upload" disabled>Upload</button>
       <button id="btn-clear" disabled>Clear</button>
@@ -206,14 +275,20 @@
   </footer>
 
   <script>
-    const dropZone   = document.getElementById('drop-zone');
-    const fileInput  = document.getElementById('file-input');
-    const fileList   = document.getElementById('file-list');
-    const btnUpload  = document.getElementById('btn-upload');
-    const btnClear   = document.getElementById('btn-clear');
-    const summary    = document.getElementById('summary');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileList = document.getElementById('file-list');
+    const tokenInput = document.getElementById('jwt-token');
+    const btnUpload = document.getElementById('btn-upload');
+    const btnClear = document.getElementById('btn-clear');
+    const summary = document.getElementById('summary');
 
     let selectedFiles = [];
+    const tokenStorageKey = 'naas.upload.jwtToken';
+    tokenInput.value = localStorage.getItem(tokenStorageKey) ?? '';
+    tokenInput.addEventListener('input', () => {
+      localStorage.setItem(tokenStorageKey, tokenInput.value.trim());
+    });
 
     // Drag-over styling
     dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -242,16 +317,16 @@
       const hasFiles = selectedFiles.length > 0;
       const uploading = selectedFiles.some(f => f.status === 'uploading');
       btnUpload.disabled = !hasFiles || uploading;
-      btnClear.disabled  = !hasFiles || uploading;
+      btnClear.disabled = !hasFiles || uploading;
     }
 
     function statusLabel(status, detail) {
       switch (status) {
-        case 'pending':   return '–';
+        case 'pending': return '–';
         case 'uploading': return '⏳ uploading…';
-        case 'done':      return '✓ uploaded';
-        case 'error':     return `✗ ${esc(detail ?? 'error')}`;
-        default:          return status;
+        case 'done': return '✓ uploaded';
+        case 'error': return `✗ ${esc(detail ?? 'error')}`;
+        default: return status;
       }
     }
 
@@ -273,9 +348,22 @@
 
         const fd = new FormData();
         fd.append('file', entry.file);
+        const jwt = tokenInput.value.trim();
+
+        if (!jwt) {
+          entry.status = 'error';
+          entry.detail = 'missing token';
+          errors++;
+          render();
+          continue;
+        }
 
         try {
-          const res = await fetch('/upload', { method: 'POST', body: fd });
+          const res = await fetch('/upload', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${jwt}` },
+            body: fd
+          });
           if (res.ok) {
             entry.status = 'done';
             done++;
@@ -307,9 +395,10 @@
 
     function esc(s) {
       return String(s)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
   </script>
 </body>
+
 </html>
