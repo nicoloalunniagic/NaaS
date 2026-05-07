@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -48,13 +49,28 @@ public sealed class ApiEndpointsTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
-    public async Task UploadEndpoint_ReturnsBadRequest_WhenNoFileProvided()
+    public async Task UploadEndpoint_ReturnsUnauthorized_WhenNoTokenProvided()
     {
-        // Send a multipart request with a text field but no file part.
-        // The handler will receive file = null and return 400.
         using var content = new MultipartFormDataContent();
         content.Add(new StringContent("dummy"), "other-field");
+
         var response = await _client.PostAsync("/upload", content);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadEndpoint_ReturnsBadRequest_WhenNoFileProvided_WithValidToken()
+    {
+        var token = await RegisterAndLoginAsync();
+
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent("dummy"), "other-field");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/upload") { Content = content };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -63,14 +79,38 @@ public sealed class ApiEndpointsTests : IClassFixture<WebApplicationFactory<Prog
     public async Task UploadEndpoint_ReturnsServiceUnavailable_WhenStorageNotConfigured()
     {
         // In the test environment AZURE_STORAGE_ACCOUNT_NAME is not set,
-        // so BlobServiceClient is not registered and the endpoint returns 503.
+        // so BlobServiceClient is not registered and the endpoint returns 503
+        // after authentication and request validation.
+        var token = await RegisterAndLoginAsync();
+
         using var content = new MultipartFormDataContent();
         using var fileContent = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes("hello blob")));
-        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
         content.Add(fileContent, "file", "test.txt");
 
-        var response = await _client.PostAsync("/upload", content);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/upload") { Content = content };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
+    private async Task<string> RegisterAndLoginAsync()
+    {
+        var username = $"testuser-{Guid.NewGuid():N}";
+        const string password = "DevPassword123456";
+
+        var registerResponse = await _client.PostAsJsonAsync("/auth/register", new { username, password });
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+
+        var loginResponse = await _client.PostAsJsonAsync("/auth/login", new { username, password });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+
+        var payload = await loginResponse.Content.ReadFromJsonAsync<JsonObject>();
+        var token = payload?["token"]?.GetValue<string>();
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        return token!;
     }
 }
