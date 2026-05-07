@@ -11,6 +11,9 @@ __pycache__/
 docs/
 infra/
 src/tests/
+src/web/
+postman/
+postman-vscode/
 **/bin/
 **/obj/
 **/TestResults/
