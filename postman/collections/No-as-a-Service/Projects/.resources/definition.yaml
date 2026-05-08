@@ -1,0 +1,75 @@
+$kind: collection
+scripts:
+  - type: http:beforeRequest
+    code: |-
+      const username = pm.environment.get('authUsername') || 'devuser';
+      const password = pm.environment.get('authPassword') || 'DevPassword123456';
+
+      if (!pm.environment.get('authUsername')) {
+        pm.environment.set('authUsername', username);
+      }
+      if (!pm.environment.get('authPassword')) {
+        pm.environment.set('authPassword', password);
+      }
+
+      if (pm.environment.get('authToken')) {
+        return;
+      }
+
+      function saveToken(response) {
+        const body = response.json();
+        if (body && body.token) {
+          pm.environment.set('authToken', body.token);
+        }
+      }
+
+      function login() {
+        pm.sendRequest({
+          url: `${pm.environment.get('baseUrl')}/auth/login`,
+          method: 'POST',
+          header: { 'Content-Type': 'application/json' },
+          body: {
+            mode: 'raw',
+            raw: JSON.stringify({ username, password })
+          }
+        }, function (loginErr, loginRes) {
+          if (loginErr) {
+            throw new Error(`Auto-login failed: ${loginErr}`);
+          }
+
+          if (loginRes && loginRes.code === 200) {
+            saveToken(loginRes);
+            return;
+          }
+
+          if (loginRes && loginRes.code === 401) {
+            pm.sendRequest({
+              url: `${pm.environment.get('baseUrl')}/auth/register`,
+              method: 'POST',
+              header: { 'Content-Type': 'application/json' },
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify({ username, password })
+              }
+            }, function (registerErr, registerRes) {
+              if (registerErr) {
+                throw new Error(`Auto-register failed: ${registerErr}`);
+              }
+
+              if (registerRes && [201, 409].includes(registerRes.code)) {
+                login();
+                return;
+              }
+
+              throw new Error(`Auto-register failed with status ${registerRes ? registerRes.code : 'unknown'}`);
+            });
+            return;
+          }
+
+          throw new Error(`Auto-login failed with status ${loginRes ? loginRes.code : 'unknown'}`);
+        });
+      }
+
+      login();
+    language: text/javascript
+order: 4000

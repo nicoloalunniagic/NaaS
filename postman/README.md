@@ -19,3 +19,5 @@ After import:
 3. In `Dev`, set `baseUrl` to your real API URL (replace `https://<dev-api-url>`).
 4. Run `Auth -> Login`; if needed it auto-registers the configured user, then stores JWT into `authToken` automatically.
 5. Run protected requests (`/customers`, `/projects`, `POST /upload`) only after login.
+6. For `POST /upload`, select a real file in `Body -> form-data -> file` before sending; the request also auto-logins if `authToken` is empty.
+7. Protected Customers/Projects requests also auto-login (and auto-register on first run) when `authToken` is empty.

@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/customers"
+method: POST
+headers:
+  Authorization: Bearer {{authToken}}
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Acme Corp",
+      "email": "acme@example.com",
+      "codiceFiscale": "ACMCPR80A01H501Z"
+    }
+order: 3000

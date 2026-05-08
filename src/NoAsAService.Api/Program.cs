@@ -1,5 +1,6 @@
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using Azure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -183,9 +184,20 @@ if (app.Environment.IsDevelopment())
     var blobSvc = app.Services.GetService<BlobServiceClient>();
     if (blobSvc is not null)
     {
+        var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BlobStartup");
         var container = blobSvc.GetBlobContainerClient(
             app.Configuration["AZURE_STORAGE_CONTAINER_NAME"] ?? "uploads");
-        await container.CreateIfNotExistsAsync();
+        try
+        {
+            await container.CreateIfNotExistsAsync();
+        }
+        catch (Exception ex) when (IsStorageUnavailable(ex))
+        {
+            logger.LogWarning(
+                "Blob storage is configured but unreachable. API will continue to start; upload endpoints may return 503 until storage becomes available. Reason: {Reason}",
+                GetRootExceptionMessage(ex));
+            logger.LogDebug(ex, "Blob startup connectivity diagnostics.");
+        }
     }
 }
 
@@ -198,7 +210,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbStartup");
-    const int maxAttempts = 10;
+    var maxAttempts = Math.Clamp(app.Configuration.GetValue("DB_STARTUP_MAX_RETRIES", 10), 1, 30);
     for (var attempt = 1; attempt <= maxAttempts; attempt++)
     {
         try
@@ -247,9 +259,10 @@ using (var scope = app.Services.CreateScope())
         }
         catch (Exception ex) when (attempt < maxAttempts)
         {
-            logger.LogWarning(ex,
-                "Database not ready (attempt {Attempt}/{Max}). Retrying...",
-                attempt, maxAttempts);
+            logger.LogWarning(
+                "Database not ready (attempt {Attempt}/{Max}). Retrying... Reason: {Reason}",
+                attempt, maxAttempts, GetRootExceptionMessage(ex));
+            logger.LogDebug(ex, "Database startup retry diagnostics.");
             await Task.Delay(TimeSpan.FromSeconds(Math.Min(2 * attempt, 10)));
         }
     }
@@ -409,8 +422,15 @@ app.MapPost("/upload", async (IFormFile? file, [FromServices] BlobServiceClient?
     var safeName = Path.GetFileName(file.FileName);
     var blobName = $"{Guid.NewGuid():N}-{safeName}";
 
-    await using var stream = file.OpenReadStream();
-    await containerClient.UploadBlobAsync(blobName, stream, ct);
+    try
+    {
+        await using var stream = file.OpenReadStream();
+        await containerClient.UploadBlobAsync(blobName, stream, ct);
+    }
+    catch (Exception ex) when (IsStorageUnavailable(ex))
+    {
+        return Results.Problem("Storage service is unavailable.", statusCode: 503);
+    }
 
     var blobUri = containerClient.GetBlobClient(blobName).Uri;
 
@@ -633,6 +653,41 @@ static string CreateJwtToken(User user, SecurityKey signingKey, string issuer, s
         signingCredentials: creds);
 
     return new JwtSecurityTokenHandler().WriteToken(token);
+}
+
+static bool IsStorageUnavailable(Exception ex)
+{
+    if (ex is RequestFailedException || ex is HttpRequestException)
+        return true;
+
+    if (ex is AggregateException agg)
+    {
+        foreach (var inner in agg.Flatten().InnerExceptions)
+        {
+            if (IsStorageUnavailable(inner))
+                return true;
+        }
+    }
+
+    return false;
+}
+
+static string GetRootExceptionMessage(Exception ex)
+{
+    if (ex is AggregateException agg)
+    {
+        var flattened = agg.Flatten();
+        if (flattened.InnerExceptions.Count > 0)
+            return GetRootExceptionMessage(flattened.InnerExceptions[0]);
+    }
+
+    var current = ex;
+    while (current.InnerException is not null)
+    {
+        current = current.InnerException;
+    }
+
+    return current.Message;
 }
 
 public record RegisterRequest(string Username, string Password);

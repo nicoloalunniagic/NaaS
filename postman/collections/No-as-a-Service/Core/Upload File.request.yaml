@@ -1,0 +1,73 @@
+$kind: http-request
+url: "{{baseUrl}}/upload"
+method: POST
+headers:
+  Authorization: Bearer {{authToken}}
+body:
+  type: formdata
+  content:
+    - type: file
+      key: file
+      src:
+        - ""
+scripts:
+  - type: beforeRequest
+    code: |-
+      const username = pm.environment.get('authUsername') || 'devuser';
+      const password = pm.environment.get('authPassword') || 'DevPassword123456';
+
+      if (!pm.environment.get('authUsername')) {
+        pm.environment.set('authUsername', username);
+      }
+      if (!pm.environment.get('authPassword')) {
+        pm.environment.set('authPassword', password);
+      }
+
+      const filePart = (pm.request.body && pm.request.body.formdata)
+        ? pm.request.body.formdata.find((item) => item.key === 'file')
+        : null;
+
+      function hasFileSrc(src) {
+        if (!src) {
+          return false;
+        }
+
+        if (Array.isArray(src)) {
+          return src.some((v) => String(v || '').trim().length > 0);
+        }
+
+        return String(src).trim().length > 0;
+      }
+
+      if (!hasFileSrc(filePart ? filePart.src : null)) {
+        console.warn('No file selected for /upload. Pick one in Body > form-data > file.');
+      }
+
+      const existingToken = pm.environment.get('authToken');
+      if (existingToken) {
+        return;
+      }
+
+      pm.sendRequest({
+        url: `${pm.environment.get('baseUrl')}/auth/login`,
+        method: 'POST',
+        header: { 'Content-Type': 'application/json' },
+        body: {
+          mode: 'raw',
+          raw: JSON.stringify({ username, password })
+        }
+      }, function (loginErr, loginRes) {
+        pm.test('upload pre-request login succeeds', function () {
+          pm.expect(loginErr).to.eql(null);
+          pm.expect(loginRes ? loginRes.code : undefined).to.eql(200);
+        });
+
+        if (loginRes && loginRes.code === 200) {
+          const body = loginRes.json();
+          if (body && body.token) {
+            pm.environment.set('authToken', body.token);
+          }
+        }
+      });
+    language: text/javascript
+order: 3000

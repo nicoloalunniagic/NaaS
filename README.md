@@ -77,6 +77,48 @@ For relational databases, schema lifecycle is managed with EF Core migrations
 When using `docker compose`, a PostgreSQL 16 instance is started automatically
 and wired to the API via `DATABASE_CONNECTION_STRING`.
 
+### Startup reliability knobs
+
+The API retries relational database startup migrations if the database is not
+ready yet.
+
+- `DB_STARTUP_MAX_RETRIES`: number of startup retry attempts (default `10`,
+  allowed range `1..30`).
+
+Example (PowerShell):
+
+```powershell
+$env:DB_STARTUP_MAX_RETRIES='20'
+dotnet run --project src/NoAsAService.Api/NoAsAService.Api.csproj
+```
+
+### Local run presets
+
+Use one of these presets depending on your local setup.
+
+#### Preset A: local Docker dependencies (Postgres + Azurite)
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT='Development'
+$env:JWT_SIGNING_KEY='dev-local-signing-key-change-for-real-env'
+$env:DATABASE_CONNECTION_STRING='Host=localhost;Port=5432;Database=naas;Username=naas;Password=naas'
+$env:AZURE_STORAGE_CONNECTION_STRING='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
+dotnet run --no-launch-profile --project src/NoAsAService.Api/NoAsAService.Api.csproj
+```
+
+#### Preset B: no external dependencies (in-memory DB, upload disabled)
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT='Development'
+$env:JWT_SIGNING_KEY='dev-local-signing-key-change-for-real-env'
+$env:DATABASE_CONNECTION_STRING=''
+$env:AZURE_STORAGE_CONNECTION_STRING=''
+dotnet run --no-launch-profile --project src/NoAsAService.Api/NoAsAService.Api.csproj
+```
+
+With Preset B, `POST /upload` returns `503` by design because blob storage is
+not configured.
+
 ## Front-end (React + TypeScript)
 
 A Vite-based SPA in [src/web](src/web/package.json) provides full CRUD for customers and
