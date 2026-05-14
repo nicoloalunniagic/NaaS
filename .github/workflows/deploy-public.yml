@@ -51,6 +51,7 @@ jobs:
           set -euo pipefail
 
           LOCATION="${{ vars.AZURE_LOCATION }}"
+          CORE_LOCATION="${{ vars.AZURE_CORE_LOCATION }}"
           POSTGRES_LOCATION="${{ vars.AZURE_POSTGRES_LOCATION }}"
           STATIC_WEB_APP_LOCATION="${{ vars.AZURE_STATIC_WEB_APP_LOCATION }}"
           STATIC_WEB_APP_SKU="${{ vars.AZURE_STATIC_WEB_APP_SKU }}"
@@ -69,8 +70,12 @@ jobs:
           EFFECTIVE_NAME_PREFIX="${BASE_NAME_PREFIX:0:11}${IAC_SUFFIX}"
           EFFECTIVE_RESOURCE_GROUP="${BASE_RESOURCE_GROUP}-${IAC_SUFFIX}"
 
+          if [[ -z "$CORE_LOCATION" ]]; then
+            CORE_LOCATION="$LOCATION"
+          fi
+
           if [[ -z "$POSTGRES_LOCATION" ]]; then
-            POSTGRES_LOCATION="$LOCATION"
+            POSTGRES_LOCATION="$CORE_LOCATION"
           fi
 
           if [[ -z "$STATIC_WEB_APP_LOCATION" ]]; then
@@ -82,6 +87,7 @@ jobs:
           fi
 
           echo "location=$LOCATION" >> "$GITHUB_OUTPUT"
+          echo "core_location=$CORE_LOCATION" >> "$GITHUB_OUTPUT"
           echo "postgres_location=$POSTGRES_LOCATION" >> "$GITHUB_OUTPUT"
           echo "static_web_app_location=$STATIC_WEB_APP_LOCATION" >> "$GITHUB_OUTPUT"
           echo "static_web_app_sku=$STATIC_WEB_APP_SKU" >> "$GITHUB_OUTPUT"
@@ -139,6 +145,7 @@ jobs:
           parameters: >
             ${{ steps.bicep_params.outputs.params_file }}
             namePrefix=${{ steps.settings.outputs.effective_name_prefix }}
+            location=${{ steps.settings.outputs.core_location }}
             deployStaticWebApp=false
             staticWebAppLocation=${{ steps.settings.outputs.static_web_app_location }}
             staticWebAppSku=${{ steps.settings.outputs.static_web_app_sku }}
@@ -166,7 +173,7 @@ jobs:
             -auto-approve \
             -input=false \
             -var "deploy_static_web_app=false" \
-            -var "location=${{ steps.settings.outputs.location }}" \
+            -var "location=${{ steps.settings.outputs.core_location }}" \
             -var "postgres_location=${{ steps.settings.outputs.postgres_location }}" \
             -var "static_web_app_location=${{ steps.settings.outputs.static_web_app_location }}" \
             -var "static_web_app_sku=${{ steps.settings.outputs.static_web_app_sku }}" \
@@ -291,7 +298,7 @@ jobs:
             -auto-approve \
             -input=false \
             -var "deploy_static_web_app=true" \
-            -var "location=${{ steps.settings.outputs.location }}" \
+            -var "location=${{ steps.settings.outputs.core_location }}" \
             -var "postgres_location=${{ steps.settings.outputs.postgres_location }}" \
             -var "static_web_app_location=${{ steps.settings.outputs.static_web_app_location }}" \
             -var "static_web_app_sku=${{ steps.settings.outputs.static_web_app_sku }}" \
@@ -407,6 +414,7 @@ jobs:
             echo "- Resource group: ${{ steps.settings.outputs.effective_resource_group }}"
             echo "- Infra tool: ${{ inputs.infra_tool }}"
             echo "- Effective name prefix: ${{ steps.settings.outputs.effective_name_prefix }}"
+            echo "- Core location: ${{ steps.settings.outputs.core_location }}"
             echo "- Skip core infra: ${{ inputs.skip_infra }}"
             echo "- Container App: ${{ steps.discover_core.outputs.container_app_name }}"
             echo "- API image: ${{ env.IMAGE_URI }}"
