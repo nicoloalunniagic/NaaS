@@ -67,9 +67,10 @@ jobs:
 
           # Keep Azure naming constraints compatible with Bicep/TF validations.
           # Prefix must remain lowercase alphanumeric and max 12 chars.
-          # Add run number for uniqueness per deployment
-          RUN_NUM="${{ github.run_number }}"
-          EFFECTIVE_NAME_PREFIX="${BASE_NAME_PREFIX:0:8}${RUN_NUM: -2}${IAC_SUFFIX}"
+          # Append run number (last 6 digits) for uniqueness per deployment.
+          # Uses $GITHUB_RUN_NUMBER env var (always set by the runner).
+          RUN_SUFFIX="${GITHUB_RUN_NUMBER: -6}"
+          EFFECTIVE_NAME_PREFIX="${BASE_NAME_PREFIX}${RUN_SUFFIX}${IAC_SUFFIX}"
           EFFECTIVE_RESOURCE_GROUP="${BASE_RESOURCE_GROUP}-${IAC_SUFFIX}"
 
           if [[ -z "$CORE_LOCATION" ]]; then
@@ -121,6 +122,19 @@ jobs:
           az group create \
             --name "${{ steps.settings.outputs.effective_resource_group }}" \
             --location "${{ steps.settings.outputs.location }}"
+
+      - name: Purge soft-deleted Key Vault (if any)
+        if: ${{ inputs.skip_infra == false }}
+        shell: bash
+        run: |
+          VAULT_NAME="${{ steps.settings.outputs.effective_name_prefix }}-kv"
+          LOCATION="${{ steps.settings.outputs.core_location }}"
+          if az keyvault show-deleted --name "$VAULT_NAME" --location "$LOCATION" &>/dev/null; then
+            echo "Purging soft-deleted vault: $VAULT_NAME"
+            az keyvault purge --name "$VAULT_NAME" --location "$LOCATION"
+          else
+            echo "No soft-deleted vault named $VAULT_NAME found — skipping purge."
+          fi
 
       - name: Resolve Bicep parameters file
         if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'bicep' }}
