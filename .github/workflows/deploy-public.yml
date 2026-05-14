@@ -67,7 +67,9 @@ jobs:
 
           # Keep Azure naming constraints compatible with Bicep/TF validations.
           # Prefix must remain lowercase alphanumeric and max 12 chars.
-          EFFECTIVE_NAME_PREFIX="${BASE_NAME_PREFIX:0:11}${IAC_SUFFIX}"
+          # Add run number for uniqueness per deployment
+          RUN_NUM="${{ github.run_number }}"
+          EFFECTIVE_NAME_PREFIX="${BASE_NAME_PREFIX:0:8}${RUN_NUM: -2}${IAC_SUFFIX}"
           EFFECTIVE_RESOURCE_GROUP="${BASE_RESOURCE_GROUP}-${IAC_SUFFIX}"
 
           if [[ -z "$CORE_LOCATION" ]]; then
