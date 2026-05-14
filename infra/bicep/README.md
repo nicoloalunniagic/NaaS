@@ -103,8 +103,8 @@ I file `.bicepparam` controllano il comportamento del deploy:
 
 ```bash
 az deployment group create \
-  --resource-group rg-naas-dev \
-  --parameters infra/azure/dev.bicepparam
+  --resource-group rg-naas-b \
+  --parameters infra/bicep/dev.bicepparam
 ```
 
 ## Build e push immagine su ACR
@@ -122,18 +122,28 @@ Poi riesegui il deploy Bicep con `containerImage` puntato al tag pubblicato.
 
 ## Deploy automatizzato con GitHub Actions
 
-File workflow: [.github/workflows/deploy-azure.yml](../../.github/workflows/deploy-azure.yml)
+File workflow: [.github/workflows/deploy-public.yml](../../.github/workflows/deploy-public.yml)
 
-Il workflow usa la federazione OIDC di GitHub tramite `azure/login@v2` per autenticarsi su Azure da `ubuntu-latest`.
+Il workflow unificato gestisce in un'unica dispatch: provisioning infra, rollout immagine API e pubblicazione SPA.
+Al momento del dispatch si sceglie `infra_tool = bicep` (default) o `terraform`.
+
+Il nome prefix e il resource group vengono derivati automaticamente con un suffisso IaC:
+
+- Bicep: prefix `<AZURE_NAME_PREFIX>b`, resource group `<AZURE_RESOURCE_GROUP>-b`
+- Terraform: prefix `<AZURE_NAME_PREFIX>t`, resource group `<AZURE_RESOURCE_GROUP>-t`
 
 Variabili repository richieste (non segreti):
 
 - `AZURE_CLIENT_ID`: Client ID dell'applicazione Entra o managed identity user-assigned associata alla credenziale federata
 - `AZURE_TENANT_ID`: tenant ID Azure Entra
 - `AZURE_SUBSCRIPTION_ID`: subscription Azure di destinazione
-- `AZURE_RESOURCE_GROUP`: nome del resource group di destinazione
-- `AZURE_LOCATION`: regione Azure (esempio: westeurope, eastus)
-- `AZURE_NAME_PREFIX`: prefisso per i nomi risorsa Azure (lowercase, 3-12 caratteri)
+- `AZURE_RESOURCE_GROUP`: nome base del resource group (suffisso aggiunto dal workflow)
+- `AZURE_LOCATION`: regione Azure default (esempio: westeurope, eastus)
+- `AZURE_NAME_PREFIX`: prefisso base per i nomi risorsa Azure (lowercase, 3-11 caratteri; il workflow aggiunge il suffisso IaC)
+- `AZURE_CORE_LOCATION` _(opzionale)_: regione alternativa per Container Apps e PostgreSQL — utile quando `AZURE_LOCATION` ha problemi di capacita'
+- `AZURE_POSTGRES_LOCATION` _(opzionale)_: regione specifica per PostgreSQL Flexible Server
+- `AZURE_STATIC_WEB_APP_LOCATION` _(opzionale)_: regione per Static Web App
+- `AZURE_STATIC_WEB_APP_SKU` _(opzionale)_: SKU Static Web App (`Free` default)
 
 RBAC Azure richiesto per l'identita' federata:
 
@@ -144,12 +154,15 @@ Serve anche una credenziale federata in Azure Entra ID che si fidi del repositor
 
 Il workflow fa le seguenti operazioni:
 
+- Calcola prefix e resource group effettivi in base all'`infra_tool` scelto
 - Esegue login su Azure con OIDC (`azure/login`)
 - Crea il resource group se necessario
-- Usa sempre `infra/azure/dev.bicepparam` (allineato all'environment GitHub `dev`)
-- Esegue deploy con un'immagine bootstrap temporanea
+- Usa `infra/bicep/dev.bicepparam` (Bicep) o variabili TF (Terraform) con `deployStaticWebApp=false`
+- Esegue deploy infra core senza SWA (skipbabile con `skip_infra=true`)
 - Esegue build e push dell'immagine app su ACR con tag derivato dal commit SHA
-- Riesegue il deploy Bicep con l'immagine pubblicata
+- Aggiorna la Container App con la nuova immagine
+- Esegue provisioning SWA con lo stesso tool IaC scelto
+- Pubblica la SPA compilata sulla Static Web App
 
 ## Note di sicurezza
 

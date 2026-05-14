@@ -153,21 +153,27 @@ Static Web Apps.
 
 ### Deploy to Azure Static Web Apps
 
-The Bicep stack provisions a Static Web App resource
-([infra/azure/modules/staticWebApp.bicep](infra/azure/modules/staticWebApp.bicep))
-and the Container App is configured with `CORS_ALLOWED_ORIGINS` pointing
-at the SWA URL so the SPA can call the API directly.
+Both IaC stacks provision a Static Web App resource. The Container App is
+configured with `CORS_ALLOWED_ORIGINS` pointing at the SWA URL so the SPA
+can call the API directly.
 
-The workflow [.github/workflows/deploy-web.yml](.github/workflows/deploy-web.yml)
-builds the SPA with `VITE_API_BASE_URL` set to the deployed API URL and
-pushes the artifact to the Static Web App. It expects the following
-repository / environment variables:
+The unified workflow [.github/workflows/deploy-public.yml](.github/workflows/deploy-public.yml)
+handles infrastructure provisioning, API image rollout, and SPA publish in
+one dispatch. It builds the SPA with `VITE_API_BASE_URL` set to the
+deployed API URL and pushes the artifact to the Static Web App.
+
+Required repository / environment variables:
 
 - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (OIDC)
-- `AZURE_RESOURCE_GROUP`
+- `AZURE_RESOURCE_GROUP` — base resource group name (suffixed with `-b` for Bicep, `-t` for Terraform)
+- `AZURE_NAME_PREFIX` — base name prefix (suffixed with `b` or `t` to scope resources per IaC tool)
+- `AZURE_LOCATION` — default Azure region
+- `AZURE_CORE_LOCATION` — optional override for Container Apps / PostgreSQL region (useful when a region has capacity constraints)
+- `AZURE_STATIC_WEB_APP_LOCATION` — optional override for the Static Web App region
+- `AZURE_STATIC_WEB_APP_SKU` — optional; defaults to `Free`
 
 The workflow discovers Static Web App and Container App resources directly
-from the resource group; no explicit `AZURE_STATIC_WEB_APP_NAME` variable is required.
+from the resource group; no explicit resource name variable is required.
 
 ## Repository essentials
 
@@ -180,9 +186,10 @@ Operational documentation and the editorial pre-merge checklist are available in
 
 ## Azure infrastructure
 
-Azure IaC documentation is available in [infra/azure/README.md](infra/azure/README.md).
+Azure IaC documentation is available in [infra/bicep/README.md](infra/bicep/README.md) (Bicep) and [infra/terraform/](infra/terraform/) (Terraform).
 
-Automated Azure deployment is available in [.github/workflows/deploy-azure.yml](.github/workflows/deploy-azure.yml).
+Automated Azure deployment is available via the single unified workflow [.github/workflows/deploy-public.yml](.github/workflows/deploy-public.yml).
+Choose `bicep` or `terraform` as the `infra_tool` input at dispatch time. Each tool provisions its resources in a dedicated resource group and with its own name prefix suffix to avoid collisions.
 
 The stack provisions a PostgreSQL Flexible Server and an Azure Key Vault.
 The database connection string is stored as a secret named
