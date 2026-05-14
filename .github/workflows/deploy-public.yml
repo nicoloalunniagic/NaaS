@@ -12,9 +12,7 @@ on:
           - terraform
         default: bicep
       skip_infra:
-        description:
-          "Skip core infra deploy (image-only fast path). Existing resources
-          must already exist."
+        description: "Skip core infra deploy (image-only fast path). Existing resources must already exist."
         required: false
         type: boolean
         default: true
@@ -57,7 +55,6 @@ jobs:
           STATIC_WEB_APP_SKU="${{ vars.AZURE_STATIC_WEB_APP_SKU }}"
           BOOTSTRAP_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
           BASE_NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
-          BASE_RESOURCE_GROUP="${{ vars.AZURE_RESOURCE_GROUP }}"
 
           if [[ "${{ inputs.infra_tool }}" == "bicep" ]]; then
             IAC_SUFFIX="b"
@@ -65,13 +62,14 @@ jobs:
             IAC_SUFFIX="t"
           fi
 
-          # Keep Azure naming constraints compatible with Bicep/TF validations.
-          # Prefix must remain lowercase alphanumeric and max 12 chars.
-          # Append run number (last 6 digits) for uniqueness per deployment.
-          # Uses $GITHUB_RUN_NUMBER env var (always set by the runner).
+          # Append last 6 digits of run number for uniqueness. Total must stay ≤ 12 chars.
           RUN_SUFFIX="${GITHUB_RUN_NUMBER: -6}"
           EFFECTIVE_NAME_PREFIX="${BASE_NAME_PREFIX}${RUN_SUFFIX}${IAC_SUFFIX}"
-          EFFECTIVE_RESOURCE_GROUP="${BASE_RESOURCE_GROUP}-${IAC_SUFFIX}"
+
+          if [[ "${#EFFECTIVE_NAME_PREFIX}" -gt 12 ]]; then
+            echo "EFFECTIVE_NAME_PREFIX '${EFFECTIVE_NAME_PREFIX}' exceeds 12 characters. Shorten AZURE_NAME_PREFIX." >&2
+            exit 1
+          fi
 
           if [[ -z "$CORE_LOCATION" ]]; then
             CORE_LOCATION="$LOCATION"
@@ -96,7 +94,7 @@ jobs:
           echo "static_web_app_sku=$STATIC_WEB_APP_SKU" >> "$GITHUB_OUTPUT"
           echo "bootstrap_image=$BOOTSTRAP_IMAGE" >> "$GITHUB_OUTPUT"
           echo "effective_name_prefix=$EFFECTIVE_NAME_PREFIX" >> "$GITHUB_OUTPUT"
-          echo "effective_resource_group=$EFFECTIVE_RESOURCE_GROUP" >> "$GITHUB_OUTPUT"
+          echo "effective_resource_group=${{ vars.AZURE_RESOURCE_GROUP }}-${IAC_SUFFIX}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -136,13 +134,6 @@ jobs:
             echo "No soft-deleted vault named $VAULT_NAME found — skipping purge."
           fi
 
-      - name: Resolve Bicep parameters file
-        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'bicep' }}
-        id: bicep_params
-        shell: bash
-        run: |
-          echo "params_file=infra/bicep/dev.bicepparam" >> "$GITHUB_OUTPUT"
-
       - name: Setup Terraform
         if: ${{ inputs.infra_tool == 'terraform' }}
         uses: hashicorp/setup-terraform@v3
@@ -159,7 +150,7 @@ jobs:
           resourceGroupName: ${{ steps.settings.outputs.effective_resource_group }}
           template: infra/bicep/main.bicep
           parameters: >
-            ${{ steps.bicep_params.outputs.params_file }}
+            infra/bicep/dev.bicepparam
             namePrefix=${{ steps.settings.outputs.effective_name_prefix }}
             location=${{ steps.settings.outputs.core_location }}
             deployStaticWebApp=false
@@ -203,14 +194,12 @@ jobs:
           RG="${{ steps.settings.outputs.effective_resource_group }}"
           NAME_PREFIX="${{ steps.settings.outputs.effective_name_prefix }}"
 
-          ACR_NAME_GUESS="${NAME_PREFIX}acr"
-          CONTAINER_APP_NAME_GUESS="${NAME_PREFIX}-api"
-
           if [[ -n "${{ steps.core_infra_bicep.outputs.containerRegistryName }}" ]]; then
             ACR_NAME="${{ steps.core_infra_bicep.outputs.containerRegistryName }}"
             ACR_LOGIN_SERVER="${{ steps.core_infra_bicep.outputs.containerRegistryLoginServer }}"
             CONTAINER_APP_NAME="${{ steps.core_infra_bicep.outputs.containerAppName }}"
           else
+            ACR_NAME_GUESS="${NAME_PREFIX}acr"
             if az acr show -n "$ACR_NAME_GUESS" --query name -o tsv >/dev/null 2>&1; then
               ACR_NAME="$ACR_NAME_GUESS"
             else
@@ -220,14 +209,15 @@ jobs:
             fi
 
             ACR_LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)
-          fi
 
-          if az containerapp show -n "$CONTAINER_APP_NAME_GUESS" -g "$RG" --query name -o tsv >/dev/null 2>&1; then
-            CONTAINER_APP_NAME="$CONTAINER_APP_NAME_GUESS"
-          else
-            CONTAINER_APP_NAME=$(az resource list -g "$RG" \
-              --resource-type "Microsoft.App/containerApps" \
-              --query "[0].name" -o tsv)
+            CONTAINER_APP_NAME_GUESS="${NAME_PREFIX}-api"
+            if az containerapp show -n "$CONTAINER_APP_NAME_GUESS" -g "$RG" --query name -o tsv >/dev/null 2>&1; then
+              CONTAINER_APP_NAME="$CONTAINER_APP_NAME_GUESS"
+            else
+              CONTAINER_APP_NAME=$(az resource list -g "$RG" \
+                --resource-type "Microsoft.App/containerApps" \
+                --query "[0].name" -o tsv)
+            fi
           fi
 
           if [[ -z "$ACR_NAME" || -z "$CONTAINER_APP_NAME" ]]; then
@@ -262,20 +252,15 @@ jobs:
             --image "${{ env.IMAGE_URI }}" \
             --output none
 
-      - name: Resolve API base URL and SWA name
+      - name: Resolve API base URL
         id: resolve
         shell: bash
         run: |
           set -euo pipefail
-          RG="${{ steps.settings.outputs.effective_resource_group }}"
-          STATIC_WEB_APP_NAME="${{ steps.settings.outputs.effective_name_prefix }}-web"
-
           CONTAINER_APP_FQDN=$(az containerapp show \
             --name "${{ steps.discover_core.outputs.container_app_name }}" \
-            --resource-group "$RG" \
+            --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
             --query properties.configuration.ingress.fqdn -o tsv)
-
-          echo "static_web_app_name=$STATIC_WEB_APP_NAME" >> "$GITHUB_OUTPUT"
           echo "api_base_url=https://$CONTAINER_APP_FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Provision SWA infra with Bicep
@@ -322,16 +307,15 @@ jobs:
             -var "container_image=${{ env.IMAGE_URI }}"
 
       - name: Discover existing Static Web App
-        id: discover
+        id: discover_swa
         shell: bash
         run: |
           set -euo pipefail
-
-          STATIC_WEB_APP_NAME="${{ steps.resolve.outputs.static_web_app_name }}"
+          SWA_NAME="${{ steps.settings.outputs.effective_name_prefix }}-web"
           RG="${{ steps.settings.outputs.effective_resource_group }}"
 
-          if az staticwebapp show -n "$STATIC_WEB_APP_NAME" -g "$RG" --query name -o tsv >/dev/null 2>&1; then
-            echo "static_web_app_name=$STATIC_WEB_APP_NAME" >> "$GITHUB_OUTPUT"
+          if az staticwebapp show -n "$SWA_NAME" -g "$RG" --query name -o tsv >/dev/null 2>&1; then
+            echo "static_web_app_name=$SWA_NAME" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -357,7 +341,7 @@ jobs:
         shell: bash
         run: |
           TOKEN=$(az staticwebapp secrets list \
-            --name "${{ steps.discover.outputs.static_web_app_name }}" \
+            --name "${{ steps.discover_swa.outputs.static_web_app_name }}" \
             --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
             --query properties.apiKey -o tsv)
           echo "::add-mask::$TOKEN"
@@ -377,7 +361,7 @@ jobs:
         shell: bash
         run: |
           STATIC_WEB_APP_FQDN=$(az staticwebapp show \
-            --name "${{ steps.discover.outputs.static_web_app_name }}" \
+            --name "${{ steps.discover_swa.outputs.static_web_app_name }}" \
             --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
             --query defaultHostname -o tsv)
           echo "static_web_app_url=https://$STATIC_WEB_APP_FQDN" >> "$GITHUB_OUTPUT"
@@ -425,16 +409,13 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### Static Web App deployment completed"
+            echo "### Deployment completed"
             echo ""
             echo "- Resource group: ${{ steps.settings.outputs.effective_resource_group }}"
             echo "- Infra tool: ${{ inputs.infra_tool }}"
-            echo "- Effective name prefix: ${{ steps.settings.outputs.effective_name_prefix }}"
-            echo "- Core location: ${{ steps.settings.outputs.core_location }}"
-            echo "- Skip core infra: ${{ inputs.skip_infra }}"
+            echo "- Name prefix: ${{ steps.settings.outputs.effective_name_prefix }}"
             echo "- Container App: ${{ steps.discover_core.outputs.container_app_name }}"
             echo "- API image: ${{ env.IMAGE_URI }}"
-            echo "- Static Web App: ${{ steps.discover.outputs.static_web_app_name }}"
-            echo "- API base URL baked in: ${{ steps.resolve.outputs.api_base_url }}"
+            echo "- Static Web App: ${{ steps.discover_swa.outputs.static_web_app_name }}"
             echo "- URL: ${{ steps.app_url.outputs.static_web_app_url }}"
           } >> "$GITHUB_STEP_SUMMARY"
