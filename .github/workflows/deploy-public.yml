@@ -55,6 +55,19 @@ jobs:
           STATIC_WEB_APP_LOCATION="${{ vars.AZURE_STATIC_WEB_APP_LOCATION }}"
           STATIC_WEB_APP_SKU="${{ vars.AZURE_STATIC_WEB_APP_SKU }}"
           BOOTSTRAP_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+          BASE_NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
+          BASE_RESOURCE_GROUP="${{ vars.AZURE_RESOURCE_GROUP }}"
+
+          if [[ "${{ inputs.infra_tool }}" == "bicep" ]]; then
+            IAC_SUFFIX="b"
+          else
+            IAC_SUFFIX="t"
+          fi
+
+          # Keep Azure naming constraints compatible with Bicep/TF validations.
+          # Prefix must remain lowercase alphanumeric and max 12 chars.
+          EFFECTIVE_NAME_PREFIX="${BASE_NAME_PREFIX:0:11}${IAC_SUFFIX}"
+          EFFECTIVE_RESOURCE_GROUP="${BASE_RESOURCE_GROUP}-${IAC_SUFFIX}"
 
           if [[ -z "$POSTGRES_LOCATION" ]]; then
             POSTGRES_LOCATION="$LOCATION"
@@ -73,6 +86,8 @@ jobs:
           echo "static_web_app_location=$STATIC_WEB_APP_LOCATION" >> "$GITHUB_OUTPUT"
           echo "static_web_app_sku=$STATIC_WEB_APP_SKU" >> "$GITHUB_OUTPUT"
           echo "bootstrap_image=$BOOTSTRAP_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "effective_name_prefix=$EFFECTIVE_NAME_PREFIX" >> "$GITHUB_OUTPUT"
+          echo "effective_resource_group=$EFFECTIVE_RESOURCE_GROUP" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -96,7 +111,7 @@ jobs:
         shell: bash
         run: |
           az group create \
-            --name "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ steps.settings.outputs.effective_resource_group }}" \
             --location "${{ steps.settings.outputs.location }}"
 
       - name: Resolve Bicep parameters file
@@ -119,10 +134,11 @@ jobs:
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}
+          resourceGroupName: ${{ steps.settings.outputs.effective_resource_group }}
           template: infra/bicep/main.bicep
           parameters: >
             ${{ steps.bicep_params.outputs.params_file }}
+            namePrefix=${{ steps.settings.outputs.effective_name_prefix }}
             deployStaticWebApp=false
             staticWebAppLocation=${{ steps.settings.outputs.static_web_app_location }}
             staticWebAppSku=${{ steps.settings.outputs.static_web_app_sku }}
@@ -137,8 +153,8 @@ jobs:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_resource_group_name: ${{ vars.AZURE_RESOURCE_GROUP }}
-          TF_VAR_name_prefix: ${{ vars.AZURE_NAME_PREFIX }}
+          TF_VAR_resource_group_name: ${{ steps.settings.outputs.effective_resource_group }}
+          TF_VAR_name_prefix: ${{ steps.settings.outputs.effective_name_prefix }}
           TF_VAR_db_administrator_password: ${{ secrets.DB_ADMIN_PASSWORD }}
           TF_VAR_jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
         run: |
@@ -161,8 +177,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
-          NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
+          RG="${{ steps.settings.outputs.effective_resource_group }}"
+          NAME_PREFIX="${{ steps.settings.outputs.effective_name_prefix }}"
 
           ACR_NAME_GUESS="${NAME_PREFIX}acr"
           CONTAINER_APP_NAME_GUESS="${NAME_PREFIX}-api"
@@ -219,7 +235,7 @@ jobs:
         run: |
           az containerapp update \
             --name "${{ steps.discover_core.outputs.container_app_name }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
             --image "${{ env.IMAGE_URI }}" \
             --output none
 
@@ -228,8 +244,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
-          STATIC_WEB_APP_NAME="${{ vars.AZURE_NAME_PREFIX }}-web"
+          RG="${{ steps.settings.outputs.effective_resource_group }}"
+          STATIC_WEB_APP_NAME="${{ steps.settings.outputs.effective_name_prefix }}-web"
 
           CONTAINER_APP_FQDN=$(az containerapp show \
             --name "${{ steps.discover_core.outputs.container_app_name }}" \
@@ -244,10 +260,10 @@ jobs:
         uses: azure/arm-deploy@v2
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}
+          resourceGroupName: ${{ steps.settings.outputs.effective_resource_group }}
           template: infra/bicep/swa.bicep
           parameters: >
-            namePrefix=${{ vars.AZURE_NAME_PREFIX }}
+            namePrefix=${{ steps.settings.outputs.effective_name_prefix }}
             location=${{ steps.settings.outputs.static_web_app_location }}
             staticWebAppSku=${{ steps.settings.outputs.static_web_app_sku }}
             apiBaseUrl=${{ steps.resolve.outputs.api_base_url }}
@@ -261,8 +277,8 @@ jobs:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_resource_group_name: ${{ vars.AZURE_RESOURCE_GROUP }}
-          TF_VAR_name_prefix: ${{ vars.AZURE_NAME_PREFIX }}
+          TF_VAR_resource_group_name: ${{ steps.settings.outputs.effective_resource_group }}
+          TF_VAR_name_prefix: ${{ steps.settings.outputs.effective_name_prefix }}
           TF_VAR_db_administrator_password: ${{ secrets.DB_ADMIN_PASSWORD }}
           TF_VAR_jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
         run: |
@@ -289,7 +305,7 @@ jobs:
           set -euo pipefail
 
           STATIC_WEB_APP_NAME="${{ steps.resolve.outputs.static_web_app_name }}"
-          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          RG="${{ steps.settings.outputs.effective_resource_group }}"
 
           if az staticwebapp show -n "$STATIC_WEB_APP_NAME" -g "$RG" --query name -o tsv >/dev/null 2>&1; then
             echo "static_web_app_name=$STATIC_WEB_APP_NAME" >> "$GITHUB_OUTPUT"
@@ -319,7 +335,7 @@ jobs:
         run: |
           TOKEN=$(az staticwebapp secrets list \
             --name "${{ steps.discover.outputs.static_web_app_name }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
             --query properties.apiKey -o tsv)
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
@@ -339,7 +355,7 @@ jobs:
         run: |
           STATIC_WEB_APP_FQDN=$(az staticwebapp show \
             --name "${{ steps.discover.outputs.static_web_app_name }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
             --query defaultHostname -o tsv)
           echo "static_web_app_url=https://$STATIC_WEB_APP_FQDN" >> "$GITHUB_OUTPUT"
 
@@ -388,8 +404,9 @@ jobs:
           {
             echo "### Static Web App deployment completed"
             echo ""
-            echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
+            echo "- Resource group: ${{ steps.settings.outputs.effective_resource_group }}"
             echo "- Infra tool: ${{ inputs.infra_tool }}"
+            echo "- Effective name prefix: ${{ steps.settings.outputs.effective_name_prefix }}"
             echo "- Skip core infra: ${{ inputs.skip_infra }}"
             echo "- Container App: ${{ steps.discover_core.outputs.container_app_name }}"
             echo "- API image: ${{ env.IMAGE_URI }}"
