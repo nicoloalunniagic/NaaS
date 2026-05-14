@@ -18,6 +18,9 @@ locals {
     "database-connection-string" = local.database_connection_string
     "jwt-signing-key"            = var.jwt_signing_key
   }
+
+  static_web_app_default_hostname = var.deploy_static_web_app ? azurerm_static_web_app.swa[0].default_host_name : ""
+  cors_allowed_origins            = local.static_web_app_default_hostname != "" ? "https://${local.static_web_app_default_hostname}" : ""
 }
 
 resource "azurerm_user_assigned_identity" "uami" {
@@ -155,6 +158,8 @@ resource "azurerm_container_app_environment" "cae" {
 }
 
 resource "azurerm_static_web_app" "swa" {
+  count = var.deploy_static_web_app ? 1 : 0
+
   name                = "${var.name_prefix}-web"
   location            = var.static_web_app_location
   resource_group_name = data.azurerm_resource_group.target.name
@@ -223,7 +228,7 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "CORS_ALLOWED_ORIGINS"
-        value = "https://${azurerm_static_web_app.swa.default_host_name}"
+        value = local.cors_allowed_origins
       }
 
       env {

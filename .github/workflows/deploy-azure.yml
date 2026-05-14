@@ -3,8 +3,17 @@ name: deploy-azure
 on:
   workflow_dispatch:
     inputs:
+      infra_tool:
+        description: "Infrastructure tool to use for provisioning."
+        required: false
+        type: choice
+        options:
+          - bicep
+          - terraform
+        default: bicep
       skip_infra:
-        description: "Skip Bicep deploy (image-only fast path). Resources must already
+        description:
+          "Skip infra deploy (image-only fast path). Resources must already
           exist."
         required: false
         type: boolean
@@ -51,14 +60,14 @@ jobs:
             --location "${{ vars.AZURE_LOCATION }}"
 
       - name: Resolve parameters file
-        if: ${{ inputs.skip_infra == false }}
+        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'bicep' }}
         id: params
         shell: bash
         run: |
-          echo "params_file=infra/azure/dev.bicepparam" >> "$GITHUB_OUTPUT"
+          echo "params_file=infra/bicep/dev.bicepparam" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy infra (bootstrap image)
-        if: ${{ inputs.skip_infra == false }}
+      - name: Deploy infra with Bicep (bootstrap image)
+        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'bicep' }}
         id: infra
         uses: azure/arm-deploy@v2
         env:
@@ -67,11 +76,55 @@ jobs:
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}
-          template: infra/azure/main.bicep
+          template: infra/bicep/main.bicep
           parameters: >
             ${{ steps.params.outputs.params_file }}
+            deployStaticWebApp=false
             containerImage=mcr.microsoft.com/azuredocs/containerapps-helloworld:latest
           deploymentMode: Incremental
+
+      - name: Setup Terraform
+        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'terraform' }}
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Deploy infra with Terraform (bootstrap image)
+        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'terraform' }}
+        shell: bash
+        env:
+          ARM_USE_OIDC: true
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_resource_group_name: ${{ vars.AZURE_RESOURCE_GROUP }}
+          TF_VAR_name_prefix: ${{ vars.AZURE_NAME_PREFIX }}
+          TF_VAR_db_administrator_password: ${{ secrets.DB_ADMIN_PASSWORD }}
+          TF_VAR_jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+
+          LOCATION="${{ vars.AZURE_LOCATION }}"
+          POSTGRES_LOCATION="${{ vars.AZURE_POSTGRES_LOCATION }}"
+          STATIC_WEB_APP_LOCATION="${{ vars.AZURE_STATIC_WEB_APP_LOCATION }}"
+          CONTAINER_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+
+          if [[ -z "$POSTGRES_LOCATION" ]]; then
+            POSTGRES_LOCATION="$LOCATION"
+          fi
+
+          if [[ -z "$STATIC_WEB_APP_LOCATION" ]]; then
+            STATIC_WEB_APP_LOCATION="$LOCATION"
+          fi
+
+          terraform -chdir=infra/terraform init -input=false
+
+          terraform -chdir=infra/terraform apply \
+            -auto-approve \
+            -input=false \
+            -var "deploy_static_web_app=false" \
+            -var "location=$LOCATION" \
+            -var "postgres_location=$POSTGRES_LOCATION" \
+            -var "static_web_app_location=$STATIC_WEB_APP_LOCATION" \
+            -var "container_image=$CONTAINER_IMAGE"
 
       - name: Discover existing Azure resources
         id: discover
@@ -181,6 +234,7 @@ jobs:
             echo "### Azure deployment completed"
             echo ""
             echo "- Resource group: ${{ vars.AZURE_RESOURCE_GROUP }}"
+            echo "- Infra tool: ${{ inputs.infra_tool }}"
             echo "- Skip infra: ${{ inputs.skip_infra }}"
             echo "- Skip smoke: ${{ inputs.skip_smoke }}"
             echo "- Container App: ${{ steps.discover.outputs.container_app_name }}"

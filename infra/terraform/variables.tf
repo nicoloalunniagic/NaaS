@@ -116,6 +116,12 @@ variable "static_web_app_sku" {
   }
 }
 
+variable "deploy_static_web_app" {
+  description = "Controls whether the Static Web App resource is deployed by this Terraform stack."
+  type        = bool
+  default     = true
+}
+
 variable "api_base_url" {
   description = "Optional API base URL application setting on Static Web App."
   type        = string

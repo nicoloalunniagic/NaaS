@@ -53,6 +53,9 @@ param staticWebAppLocation string = 'westeurope'
 ])
 param staticWebAppSku string = 'Free'
 
+@description('Controls whether the Static Web App resource is deployed by this template.')
+param deployStaticWebApp bool = true
+
 @description('Administrator login for the PostgreSQL Flexible Server')
 param dbAdministratorLogin string = 'naasadmin'
 
@@ -175,7 +178,7 @@ module containerApp './modules/containerApp.bicep' = {
       }
       {
         name: 'CORS_ALLOWED_ORIGINS'
-        value: staticWebApp.outputs.url
+        value: deployStaticWebApp ? staticWebApp!.outputs.url : ''
       }
       {
         name: 'DATABASE_CONNECTION_STRING'
@@ -190,7 +193,7 @@ module containerApp './modules/containerApp.bicep' = {
 
 }
 
-module staticWebApp './modules/staticWebApp.bicep' = {
+module staticWebApp './modules/staticWebApp.bicep' = if (deployStaticWebApp) {
   name: 'staticWebApp'
   params: {
     name: '${namePrefix}-web'
@@ -211,8 +214,8 @@ output containerAppUrl string = containerApp.outputs.url
 output storageAccountName string = blobStorage.outputs.storageAccountName
 output blobContainerName string = blobStorage.outputs.blobContainerName
 
-output staticWebAppName string = staticWebApp.outputs.name
-output staticWebAppUrl string = staticWebApp.outputs.url
+output staticWebAppName string = deployStaticWebApp ? staticWebApp!.outputs.name : ''
+output staticWebAppUrl string = deployStaticWebApp ? staticWebApp!.outputs.url : ''
 
 output postgresServerName string = postgres.outputs.serverName
 output postgresFqdn string = postgres.outputs.fullyQualifiedDomainName

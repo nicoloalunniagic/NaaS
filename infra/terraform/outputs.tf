@@ -34,17 +34,17 @@ output "blob_container_name" {
 }
 
 output "static_web_app_name" {
-  value       = azurerm_static_web_app.swa.name
+  value       = try(azurerm_static_web_app.swa[0].name, null)
   description = "Static Web App name."
 }
 
 output "static_web_app_url" {
-  value       = "https://${azurerm_static_web_app.swa.default_host_name}"
+  value       = try("https://${azurerm_static_web_app.swa[0].default_host_name}", null)
   description = "Static Web App URL."
 }
 
 output "static_web_app_deployment_token" {
-  value       = azurerm_static_web_app.swa.api_key
+  value       = try(azurerm_static_web_app.swa[0].api_key, null)
   sensitive   = true
   description = "Static Web App deployment token."
 }
