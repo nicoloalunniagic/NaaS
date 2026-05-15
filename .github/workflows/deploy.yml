@@ -4,28 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       topology:
-        description: "Network topology to deploy"
         required: true
         type: choice
-        options:
-          - public
-          - private
+        options: [public, private]
         default: public
       infra_tool:
-        description: "Infrastructure tool to use for provisioning."
         required: false
         type: choice
-        options:
-          - bicep
-          - terraform
+        options: [bicep, terraform]
         default: bicep
       skip_infra:
-        description: "Skip core infra deploy (image-only fast path). Existing resources must already exist."
         required: false
         type: boolean
         default: false
       skip_smoke:
-        description: "Skip smoke test to reduce deploy time."
         required: false
         type: boolean
         default: false
@@ -62,54 +54,30 @@ jobs:
           POSTGRES_LOCATION="${{ vars.AZURE_POSTGRES_LOCATION }}"
           STATIC_WEB_APP_LOCATION="${{ vars.AZURE_STATIC_WEB_APP_LOCATION }}"
           STATIC_WEB_APP_SKU="${{ vars.AZURE_STATIC_WEB_APP_SKU }}"
-          BOOTSTRAP_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-          BASE_NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
 
-          if [[ "${{ inputs.topology }}" == "public" ]]; then
-            if [[ "${{ inputs.infra_tool }}" == "bicep" ]]; then
-              IAC_SUFFIX="pb"
-            else
-              IAC_SUFFIX="pt"
-            fi
-          else
-            if [[ "${{ inputs.infra_tool }}" == "bicep" ]]; then
-              IAC_SUFFIX="xb"
-            else
-              IAC_SUFFIX="xt"
-            fi
-          fi
+          [[ "${{ inputs.topology }}" == "public" ]] && TP="p" || TP="x"
+          [[ "${{ inputs.infra_tool }}" == "bicep" ]] && TL="b" || TL="t"
+          IAC_SUFFIX="${TP}${TL}"
 
-          # Append last 6 digits of run number for uniqueness. Total must stay ≤ 12 chars.
           RUN_SUFFIX="${GITHUB_RUN_NUMBER: -6}"
-          EFFECTIVE_NAME_PREFIX="${BASE_NAME_PREFIX}${RUN_SUFFIX}${IAC_SUFFIX}"
+          EFFECTIVE_NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}${RUN_SUFFIX}${IAC_SUFFIX}"
 
           if [[ "${#EFFECTIVE_NAME_PREFIX}" -gt 12 ]]; then
             echo "EFFECTIVE_NAME_PREFIX '${EFFECTIVE_NAME_PREFIX}' exceeds 12 characters. Shorten AZURE_NAME_PREFIX." >&2
             exit 1
           fi
 
-          if [[ -z "$CORE_LOCATION" ]]; then
-            CORE_LOCATION="$LOCATION"
-          fi
-
-          if [[ -z "$POSTGRES_LOCATION" ]]; then
-            POSTGRES_LOCATION="$CORE_LOCATION"
-          fi
-
-          if [[ -z "$STATIC_WEB_APP_LOCATION" ]]; then
-            STATIC_WEB_APP_LOCATION="$LOCATION"
-          fi
-
-          if [[ -z "$STATIC_WEB_APP_SKU" ]]; then
-            STATIC_WEB_APP_SKU="Free"
-          fi
+          CORE_LOCATION="${CORE_LOCATION:-$LOCATION}"
+          POSTGRES_LOCATION="${POSTGRES_LOCATION:-$CORE_LOCATION}"
+          STATIC_WEB_APP_LOCATION="${STATIC_WEB_APP_LOCATION:-$LOCATION}"
+          STATIC_WEB_APP_SKU="${STATIC_WEB_APP_SKU:-Free}"
 
           echo "location=$LOCATION" >> "$GITHUB_OUTPUT"
           echo "core_location=$CORE_LOCATION" >> "$GITHUB_OUTPUT"
           echo "postgres_location=$POSTGRES_LOCATION" >> "$GITHUB_OUTPUT"
           echo "static_web_app_location=$STATIC_WEB_APP_LOCATION" >> "$GITHUB_OUTPUT"
           echo "static_web_app_sku=$STATIC_WEB_APP_SKU" >> "$GITHUB_OUTPUT"
-          echo "bootstrap_image=$BOOTSTRAP_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "bootstrap_image=mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" >> "$GITHUB_OUTPUT"
           echo "effective_name_prefix=$EFFECTIVE_NAME_PREFIX" >> "$GITHUB_OUTPUT"
           echo "effective_resource_group=${{ vars.AZURE_RESOURCE_GROUP }}-${IAC_SUFFIX}" >> "$GITHUB_OUTPUT"
 
@@ -137,31 +105,6 @@ jobs:
           az group create \
             --name "${{ steps.settings.outputs.effective_resource_group }}" \
             --location "${{ steps.settings.outputs.location }}"
-
-      - name: Purge soft-deleted Key Vaults (if any)
-        if: ${{ inputs.skip_infra == false }}
-        shell: bash
-        run: |
-          # Purge every soft-deleted vault whose name starts with the base name prefix.
-          # This covers vaults from old naming conventions (e.g. naasb-kv) as well as
-          # the current run-suffixed names, preventing VaultAlreadyExists conflicts.
-          BASE_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
-          LOCATION="${{ steps.settings.outputs.core_location }}"
-
-          DELETED=$(az keyvault list-deleted \
-            --query "[?starts_with(name, '${BASE_PREFIX}') && properties.location == '${LOCATION}'].name" \
-            -o tsv)
-
-          if [[ -z "$DELETED" ]]; then
-            echo "No soft-deleted vaults with prefix '${BASE_PREFIX}' found — skipping purge."
-          else
-            while IFS= read -r VAULT; do
-              echo "Purging soft-deleted vault: $VAULT"
-              if ! az keyvault purge --name "$VAULT" --location "$LOCATION" 2>&1; then
-                echo "::warning::Could not purge $VAULT (purge protection enabled — will expire automatically after retention period)."
-              fi
-            done <<< "$DELETED"
-          fi
 
       - name: Setup Terraform
         if: ${{ inputs.infra_tool == 'terraform' }}
@@ -293,7 +236,7 @@ jobs:
             --query properties.configuration.ingress.fqdn -o tsv)
           echo "api_base_url=https://$CONTAINER_APP_FQDN" >> "$GITHUB_OUTPUT"
 
-      - name: Provision SWA infra with Bicep
+      - name: Provision SWA with Bicep
         if: ${{ inputs.infra_tool == 'bicep' }}
         uses: azure/arm-deploy@v2
         with:
@@ -307,7 +250,7 @@ jobs:
             apiBaseUrl=${{ steps.resolve.outputs.api_base_url || '' }}
           deploymentMode: Incremental
 
-      - name: Provision SWA infra with Terraform
+      - name: Provision SWA with Terraform
         if: ${{ inputs.infra_tool == 'terraform' }}
         shell: bash
         env:
@@ -397,7 +340,6 @@ jobs:
           echo "static_web_app_url=https://$STATIC_WEB_APP_FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test deployed SPA
-        # Private topology: Container App ingress is VNet-internal, unreachable from GitHub-hosted runner
         if: ${{ inputs.skip_smoke == false && inputs.topology == 'public' }}
         shell: bash
         run: |
@@ -407,29 +349,14 @@ jobs:
           for attempt in {1..12}; do
             root_code=$(curl -sS -o /dev/null -w "%{http_code}" "$API_BASE_URL/" || true)
             openapi_code=$(curl -sS -o /dev/null -w "%{http_code}" "$API_BASE_URL/openapi/v1.json" || true)
-
-            if [ "$root_code" = "200" ] && [ "$openapi_code" = "200" ]; then
-              echo "API smoke check ok: $API_BASE_URL"
-              break
-            fi
-
-            if [ "$attempt" = "12" ]; then
-              echo "API smoke check failed"
-              exit 1
-            fi
-
-            echo "API attempt $attempt/12: root=$root_code openapi=$openapi_code"
+            [ "$root_code" = "200" ] && [ "$openapi_code" = "200" ] && break
+            [ "$attempt" = "12" ] && { echo "API smoke check failed"; exit 1; }
             sleep 10
           done
 
           for attempt in {1..12}; do
             root_code=$(curl -sS -o /dev/null -w "%{http_code}" "$BASE_URL/" || true)
-            if [ "$root_code" = "200" ]; then
-              echo "Public smoke check ok: $BASE_URL"
-              exit 0
-            fi
-
-            echo "Public attempt $attempt/12: root=$root_code"
+            [ "$root_code" = "200" ] && exit 0
             sleep 10
           done
 
