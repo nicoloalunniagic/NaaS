@@ -36,7 +36,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/public-infra'
+    if: github.ref == 'refs/heads/public-infrastructure'
     environment: dev
     timeout-minutes: 30
 
