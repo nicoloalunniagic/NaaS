@@ -131,13 +131,13 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform format check
-        working-directory: infra/terraform
+        working-directory: infra/public/terraform
         run: terraform fmt -check -recursive
 
       - name: Terraform init
-        working-directory: infra/terraform
+        working-directory: infra/public/terraform
         run: terraform init -backend=false -input=false
 
       - name: Terraform validate
-        working-directory: infra/terraform
+        working-directory: infra/public/terraform
         run: terraform validate

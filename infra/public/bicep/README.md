@@ -104,7 +104,7 @@ I file `.bicepparam` controllano il comportamento del deploy:
 ```bash
 az deployment group create \
   --resource-group rg-naas-b \
-  --parameters infra/bicep/dev.bicepparam
+  --parameters infra/public/bicep/dev.bicepparam
 ```
 
 ## Build e push immagine su ACR
@@ -122,7 +122,7 @@ Poi riesegui il deploy Bicep con `containerImage` puntato al tag pubblicato.
 
 ## Deploy automatizzato con GitHub Actions
 
-File workflow: [.github/workflows/deploy-public.yml](../../.github/workflows/deploy-public.yml)
+File workflow: [.github/workflows/deploy.yml](../../.github/workflows/deploy.yml)
 
 Il workflow unificato gestisce in un'unica dispatch: provisioning infra, rollout immagine API e pubblicazione SPA.
 Al momento del dispatch si sceglie `infra_tool = bicep` (default) o `terraform`.
@@ -157,7 +157,7 @@ Il workflow fa le seguenti operazioni:
 - Calcola prefix e resource group effettivi in base all'`infra_tool` scelto
 - Esegue login su Azure con OIDC (`azure/login`)
 - Crea il resource group se necessario
-- Usa `infra/bicep/dev.bicepparam` (Bicep) o variabili TF (Terraform) con `deployStaticWebApp=false`
+- Usa `infra/public/bicep/dev.bicepparam` (Bicep) o variabili TF (Terraform) con `deployStaticWebApp=false`
 - Esegue deploy infra core senza SWA (skipbabile con `skip_infra=true`)
 - Esegue build e push dell'immagine app su ACR con tag derivato dal commit SHA
 - Aggiorna la Container App con la nuova immagine

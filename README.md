@@ -186,9 +186,9 @@ Operational documentation and the editorial pre-merge checklist are available in
 
 ## Azure infrastructure
 
-Azure IaC documentation is available in [infra/bicep/README.md](infra/bicep/README.md) (Bicep) and [infra/terraform/](infra/terraform/) (Terraform).
+Azure IaC documentation is available in [infra/public/bicep/README.md](infra/public/bicep/README.md) (Bicep) and [infra/public/terraform/](infra/public/terraform/) (Terraform).
 
-Automated Azure deployment is available via the single unified workflow [.github/workflows/deploy-public.yml](.github/workflows/deploy-public.yml).
+Automated Azure deployment is available via the single unified workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
 Choose `bicep` or `terraform` as the `infra_tool` input at dispatch time. Each tool provisions its resources in a dedicated resource group and with its own name prefix suffix to avoid collisions.
 
 The stack provisions a PostgreSQL Flexible Server and an Azure Key Vault.
