@@ -268,6 +268,15 @@ resource "azurerm_container_app" "api" {
     }
   }
 
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
   depends_on = [
     azurerm_key_vault_secret.seeded,
     azurerm_role_assignment.acr_pull,
