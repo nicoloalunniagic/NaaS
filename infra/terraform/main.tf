@@ -5,12 +5,13 @@ data "azurerm_resource_group" "target" {
 }
 
 locals {
-  location           = coalesce(var.location, data.azurerm_resource_group.target.location)
-  postgres_location  = coalesce(var.postgres_location, local.location)
-  tags               = merge({ app = "no-as-a-service", managedBy = "bicep" }, var.additional_tags)
-  acr_pull_role_id   = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d"
-  blob_role_id       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"
-  kv_secrets_role_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6"
+  location                   = coalesce(var.location, data.azurerm_resource_group.target.location)
+  postgres_location          = coalesce(var.postgres_location, local.location)
+  tags                       = merge({ app = "no-as-a-service", managedBy = "bicep" }, var.additional_tags)
+  acr_pull_role_id           = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d"
+  blob_role_id               = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"
+  kv_secrets_role_id         = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6"
+  kv_secrets_officer_role_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
 
   database_connection_string = "Host=${azurerm_postgresql_flexible_server.server.fqdn};Port=5432;Database=${azurerm_postgresql_flexible_server_database.database.name};Username=${var.db_administrator_login};Password=${var.db_administrator_password};SSL Mode=Require;Trust Server Certificate=true"
 
@@ -58,7 +59,6 @@ resource "azurerm_storage_account" "blob" {
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
   https_traffic_only_enabled      = true
-  shared_access_key_enabled       = false
 
   tags = local.tags
 }
@@ -125,6 +125,13 @@ resource "azurerm_role_assignment" "key_vault_secrets_user" {
   principal_id       = azurerm_user_assigned_identity.uami.principal_id
 }
 
+# Grants the Terraform deploying SP write access to seed secrets.
+resource "azurerm_role_assignment" "key_vault_secrets_officer" {
+  scope              = azurerm_key_vault.vault.id
+  role_definition_id = local.kv_secrets_officer_role_id
+  principal_id       = data.azurerm_client_config.current.object_id
+}
+
 resource "azurerm_key_vault_secret" "seeded" {
   for_each = local.key_vault_seed_secrets
 
@@ -132,7 +139,10 @@ resource "azurerm_key_vault_secret" "seeded" {
   value        = each.value
   key_vault_id = azurerm_key_vault.vault.id
 
-  depends_on = [azurerm_role_assignment.key_vault_secrets_user]
+  depends_on = [
+    azurerm_role_assignment.key_vault_secrets_user,
+    azurerm_role_assignment.key_vault_secrets_officer,
+  ]
 }
 
 resource "azurerm_log_analytics_workspace" "law" {
