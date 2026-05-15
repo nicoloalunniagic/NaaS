@@ -121,17 +121,29 @@ jobs:
             --name "${{ steps.settings.outputs.effective_resource_group }}" \
             --location "${{ steps.settings.outputs.location }}"
 
-      - name: Purge soft-deleted Key Vault (if any)
+      - name: Purge soft-deleted Key Vaults (if any)
         if: ${{ inputs.skip_infra == false }}
         shell: bash
         run: |
-          VAULT_NAME="${{ steps.settings.outputs.effective_name_prefix }}-kv"
+          # Purge every soft-deleted vault whose name starts with the base name prefix.
+          # This covers vaults from old naming conventions (e.g. naasb-kv) as well as
+          # the current run-suffixed names, preventing VaultAlreadyExists conflicts.
+          BASE_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
           LOCATION="${{ steps.settings.outputs.core_location }}"
-          if az keyvault show-deleted --name "$VAULT_NAME" --location "$LOCATION" &>/dev/null; then
-            echo "Purging soft-deleted vault: $VAULT_NAME"
-            az keyvault purge --name "$VAULT_NAME" --location "$LOCATION"
+
+          DELETED=$(az keyvault list-deleted \
+            --query "[?starts_with(name, '${BASE_PREFIX}') && properties.location == '${LOCATION}'].name" \
+            -o tsv)
+
+          if [[ -z "$DELETED" ]]; then
+            echo "No soft-deleted vaults with prefix '${BASE_PREFIX}' found — skipping purge."
           else
-            echo "No soft-deleted vault named $VAULT_NAME found — skipping purge."
+            while IFS= read -r VAULT; do
+              echo "Purging soft-deleted vault: $VAULT"
+              if ! az keyvault purge --name "$VAULT" --location "$LOCATION" 2>&1; then
+                echo "::warning::Could not purge $VAULT (purge protection enabled — will expire automatically after retention period)."
+              fi
+            done <<< "$DELETED"
           fi
 
       - name: Setup Terraform
