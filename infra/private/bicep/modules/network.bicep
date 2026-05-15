@@ -56,6 +56,14 @@ resource spokeVnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
         name: 'cae-infra-subnet'
         properties: {
           addressPrefix: caeSubnetPrefix
+          delegations: [
+            {
+              name: 'cae-delegation'
+              properties: {
+                serviceName: 'Microsoft.App/environments'
+              }
+            }
+          ]
         }
       }
       {
