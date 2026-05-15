@@ -159,9 +159,9 @@ variable "blob_container_name" {
 }
 
 variable "postgres_sku_name" {
-  description = "SKU name for PostgreSQL Flexible Server."
+  description = "SKU name for PostgreSQL Flexible Server (azurerm format: <tier>_<sku>, e.g. B_Standard_B1ms)."
   type        = string
-  default     = "Standard_B1ms"
+  default     = "B_Standard_B1ms"
 }
 
 variable "postgres_version" {
