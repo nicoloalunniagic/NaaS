@@ -23,7 +23,7 @@ on:
         description: "Skip core infra deploy (image-only fast path). Existing resources must already exist."
         required: false
         type: boolean
-        default: true
+        default: false
       skip_smoke:
         description: "Skip smoke test to reduce deploy time."
         required: false
