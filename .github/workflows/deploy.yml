@@ -1,8 +1,16 @@
-name: deploy-public
+name: deploy
 
 on:
   workflow_dispatch:
     inputs:
+      topology:
+        description: "Network topology to deploy"
+        required: true
+        type: choice
+        options:
+          - public
+          - private
+        default: public
       infra_tool:
         description: "Infrastructure tool to use for provisioning."
         required: false
@@ -23,7 +31,7 @@ on:
         default: false
 
 concurrency:
-  group: deploy-public-${{ github.ref }}
+  group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -36,7 +44,6 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/public-infrastructure'
     environment: dev
     timeout-minutes: 30
 
@@ -58,10 +65,18 @@ jobs:
           BOOTSTRAP_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
           BASE_NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
 
-          if [[ "${{ inputs.infra_tool }}" == "bicep" ]]; then
-            IAC_SUFFIX="b"
+          if [[ "${{ inputs.topology }}" == "public" ]]; then
+            if [[ "${{ inputs.infra_tool }}" == "bicep" ]]; then
+              IAC_SUFFIX="pb"
+            else
+              IAC_SUFFIX="pt"
+            fi
           else
-            IAC_SUFFIX="t"
+            if [[ "${{ inputs.infra_tool }}" == "bicep" ]]; then
+              IAC_SUFFIX="xb"
+            else
+              IAC_SUFFIX="xt"
+            fi
           fi
 
           # Append last 6 digits of run number for uniqueness. Total must stay ≤ 12 chars.
@@ -162,9 +177,9 @@ jobs:
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ steps.settings.outputs.effective_resource_group }}
-          template: infra/bicep/main.bicep
+          template: infra/${{ inputs.topology }}/bicep/main.bicep
           parameters: >
-            infra/bicep/dev.bicepparam
+            infra/${{ inputs.topology }}/bicep/dev.bicepparam
             namePrefix=${{ steps.settings.outputs.effective_name_prefix }}
             location=${{ steps.settings.outputs.core_location }}
             deployStaticWebApp=false
@@ -188,9 +203,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          terraform -chdir=infra/terraform init -input=false
+          terraform -chdir=infra/${{ inputs.topology }}/terraform init -input=false
 
-          terraform -chdir=infra/terraform apply \
+          terraform -chdir=infra/${{ inputs.topology }}/terraform apply \
             -auto-approve \
             -input=false \
             -var "deploy_static_web_app=false" \
@@ -267,6 +282,7 @@ jobs:
             --output none
 
       - name: Resolve API base URL
+        if: inputs.topology == 'public'
         id: resolve
         shell: bash
         run: |
@@ -283,12 +299,12 @@ jobs:
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ steps.settings.outputs.effective_resource_group }}
-          template: infra/bicep/swa.bicep
+          template: infra/${{ inputs.topology }}/bicep/swa.bicep
           parameters: >
             namePrefix=${{ steps.settings.outputs.effective_name_prefix }}
             location=${{ steps.settings.outputs.static_web_app_location }}
             staticWebAppSku=${{ steps.settings.outputs.static_web_app_sku }}
-            apiBaseUrl=${{ steps.resolve.outputs.api_base_url }}
+            apiBaseUrl=${{ steps.resolve.outputs.api_base_url || '' }}
           deploymentMode: Incremental
 
       - name: Provision SWA infra with Terraform
@@ -306,9 +322,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          terraform -chdir=infra/terraform init -input=false
+          terraform -chdir=infra/${{ inputs.topology }}/terraform init -input=false
 
-          terraform -chdir=infra/terraform apply \
+          terraform -chdir=infra/${{ inputs.topology }}/terraform apply \
             -target=azurerm_static_web_app.swa \
             -auto-approve \
             -input=false \
@@ -317,7 +333,7 @@ jobs:
             -var "postgres_location=${{ steps.settings.outputs.postgres_location }}" \
             -var "static_web_app_location=${{ steps.settings.outputs.static_web_app_location }}" \
             -var "static_web_app_sku=${{ steps.settings.outputs.static_web_app_sku }}" \
-            -var "api_base_url=${{ steps.resolve.outputs.api_base_url }}" \
+            -var "api_base_url=${{ steps.resolve.outputs.api_base_url || '' }}" \
             -var "container_image=${{ env.IMAGE_URI }}"
 
       - name: Discover existing Static Web App
@@ -347,7 +363,7 @@ jobs:
       - name: Build SPA
         working-directory: src/web
         env:
-          VITE_API_BASE_URL: ${{ steps.resolve.outputs.api_base_url }}
+          VITE_API_BASE_URL: ${{ steps.resolve.outputs.api_base_url || '' }}
         run: npm run build
 
       - name: Resolve SWA deployment token
@@ -381,7 +397,8 @@ jobs:
           echo "static_web_app_url=https://$STATIC_WEB_APP_FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test deployed SPA
-        if: ${{ inputs.skip_smoke == false }}
+        # Private topology: Container App ingress is VNet-internal, unreachable from GitHub-hosted runner
+        if: ${{ inputs.skip_smoke == false && inputs.topology == 'public' }}
         shell: bash
         run: |
           API_BASE_URL="${{ steps.resolve.outputs.api_base_url }}"
@@ -426,11 +443,12 @@ jobs:
             echo "### Deployment completed"
             echo ""
             echo "- Resource group: ${{ steps.settings.outputs.effective_resource_group }}"
+            echo "- Topology: ${{ inputs.topology }}"
             echo "- Infra tool: ${{ inputs.infra_tool }}"
             echo "- Name prefix: ${{ steps.settings.outputs.effective_name_prefix }}"
             echo "- Container App: ${{ steps.discover_core.outputs.container_app_name }}"
             echo "- API image: ${{ env.IMAGE_URI }}"
             echo "- Static Web App: ${{ steps.discover_swa.outputs.static_web_app_name }}"
             echo "- URL: ${{ steps.app_url.outputs.static_web_app_url }}"
-            echo "- API URL: ${{ steps.resolve.outputs.api_base_url }}"
+            echo "- API URL: ${{ inputs.topology == 'public' && steps.resolve.outputs.api_base_url || 'internal VNet only' }}"
           } >> "$GITHUB_STEP_SUMMARY"
