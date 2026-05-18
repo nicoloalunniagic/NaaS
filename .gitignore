@@ -33,7 +33,6 @@ src/web/dist/
 !.env.example
 
 # Terraform artifacts
-.terraform.lock.hcl
 .terraform.tfstate.lock.info
 .terraform/
 *_override.tf
