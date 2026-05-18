@@ -147,9 +147,10 @@ resource hubDnsLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020
     registrationEnabled: false
   }
   // ARM runtime does not reliably track implicit deps inside for-loop bodies;
-  // explicit dependsOn is required even though the linter flags it as redundant.
+  // anchor on peering resources (non-loop, parent-based) which guarantee both
+  // VNets are fully provisioned before any DNS link creation is attempted.
   #disable-next-line no-unnecessary-dependson
-  dependsOn: [hubVnet]
+  dependsOn: [hubToSpoke, spokeToHub]
 }]
 
 // Link every zone to the spoke VNet — VNet peering does NOT auto-extend
@@ -164,7 +165,7 @@ resource spokeDnsLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@20
   }
   // Same rationale as hubDnsLinks above.
   #disable-next-line no-unnecessary-dependson
-  dependsOn: [spokeVnet]
+  dependsOn: [hubToSpoke, spokeToHub]
 }]
 
 // ── Outputs ───────────────────────────────────────────────────────────────────
