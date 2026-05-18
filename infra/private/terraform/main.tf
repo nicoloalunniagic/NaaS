@@ -178,10 +178,12 @@ resource "azurerm_postgresql_flexible_server" "server" {
   sku_name               = var.postgres_sku_name
   storage_mb             = var.postgres_storage_size_gb * 1024
 
-  # VNet injection — public_network_access_enabled is implicitly false when
-  # delegated_subnet_id is set; do not set it explicitly to avoid provider drift.
-  delegated_subnet_id = azurerm_subnet.spoke_postgres.id
-  private_dns_zone_id = azurerm_private_dns_zone.postgres.id
+  # VNet injection and public access are mutually exclusive. The azurerm 4.x
+  # provider defaults public_network_access_enabled to true, so it must be
+  # set explicitly to false when using delegated_subnet_id.
+  public_network_access_enabled = false
+  delegated_subnet_id           = azurerm_subnet.spoke_postgres.id
+  private_dns_zone_id           = azurerm_private_dns_zone.postgres.id
 
   backup_retention_days        = 7
   geo_redundant_backup_enabled = false
@@ -456,6 +458,11 @@ resource "azurerm_private_endpoint" "ampls" {
   resource_group_name = data.azurerm_resource_group.target.name
   subnet_id           = azurerm_subnet.spoke_pe.id
   tags                = local.tags
+
+  depends_on = [
+    azurerm_monitor_private_link_scoped_service.appi,
+    azurerm_monitor_private_link_scoped_service.law,
+  ]
 
   private_service_connection {
     name                           = "${var.name_prefix}-appi-ampls-pe-connection"
