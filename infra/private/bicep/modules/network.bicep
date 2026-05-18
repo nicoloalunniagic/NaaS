@@ -146,6 +146,9 @@ resource hubDnsLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020
     virtualNetwork: { id: hubVnet.id }
     registrationEnabled: false
   }
+  // ARM runtime does not reliably track implicit deps inside for-loop bodies;
+  // explicit dependsOn is required even though the linter flags it as redundant.
+  #disable-next-line no-unnecessary-dependson
   dependsOn: [hubVnet]
 }]
 
@@ -159,6 +162,8 @@ resource spokeDnsLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@20
     virtualNetwork: { id: spokeVnet.id }
     registrationEnabled: false
   }
+  // Same rationale as hubDnsLinks above.
+  #disable-next-line no-unnecessary-dependson
   dependsOn: [spokeVnet]
 }]
 
