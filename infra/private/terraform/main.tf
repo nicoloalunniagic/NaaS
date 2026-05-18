@@ -328,16 +328,18 @@ resource "azurerm_container_app" "api" {
     identity = azurerm_user_assigned_identity.uami.id
   }
 
+  # Direct values are used instead of Key Vault references because the KV
+  # data plane is private (public_network_access_enabled = false) and
+  # unreachable from the Azure Container Apps control plane at provision time.
+  # Both values are already sensitive in Terraform state.
   secret {
-    name                = "database-connection-string"
-    key_vault_secret_id = "${azurerm_key_vault.vault.vault_uri}secrets/database-connection-string"
-    identity            = azurerm_user_assigned_identity.uami.id
+    name  = "database-connection-string"
+    value = local.database_connection_string
   }
 
   secret {
-    name                = "jwt-signing-key"
-    key_vault_secret_id = "${azurerm_key_vault.vault.vault_uri}secrets/jwt-signing-key"
-    identity            = azurerm_user_assigned_identity.uami.id
+    name  = "jwt-signing-key"
+    value = var.jwt_signing_key
   }
 
   template {
