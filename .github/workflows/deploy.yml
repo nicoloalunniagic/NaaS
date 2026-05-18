@@ -59,13 +59,15 @@ jobs:
           [[ "${{ inputs.infra_tool }}" == "bicep" ]] && TL="b" || TL="t"
           IAC_SUFFIX="${TP}${TL}"
 
-          RUN_SUFFIX="${GITHUB_RUN_NUMBER: -6}"
-          EFFECTIVE_NAME_PREFIX="${{ vars.AZURE_NAME_PREFIX }}${RUN_SUFFIX}${IAC_SUFFIX}"
-
-          if [[ "${#EFFECTIVE_NAME_PREFIX}" -gt 12 ]]; then
-            echo "EFFECTIVE_NAME_PREFIX '${EFFECTIVE_NAME_PREFIX}' exceeds 12 characters. Shorten AZURE_NAME_PREFIX." >&2
+          BASE_PREFIX="${{ vars.AZURE_NAME_PREFIX }}"
+          MAX_SUFFIX_LEN=$(( 12 - ${#BASE_PREFIX} - ${#IAC_SUFFIX} ))
+          if [[ $MAX_SUFFIX_LEN -le 0 ]]; then
+            echo "AZURE_NAME_PREFIX '${BASE_PREFIX}' is too long to leave room for a run suffix alongside IAC_SUFFIX '${IAC_SUFFIX}'. Shorten AZURE_NAME_PREFIX to at most $(( 12 - ${#IAC_SUFFIX} - 1 )) characters." >&2
             exit 1
           fi
+          MODULO=$(( 10 ** MAX_SUFFIX_LEN ))
+          RUN_SUFFIX=$(printf "%0${MAX_SUFFIX_LEN}d" $(( ${GITHUB_RUN_NUMBER:-0} % MODULO )))
+          EFFECTIVE_NAME_PREFIX="${BASE_PREFIX}${RUN_SUFFIX}${IAC_SUFFIX}"
 
           CORE_LOCATION="${CORE_LOCATION:-$LOCATION}"
           POSTGRES_LOCATION="${POSTGRES_LOCATION:-$CORE_LOCATION}"
@@ -131,23 +133,6 @@ jobs:
             staticWebAppSku=${{ steps.settings.outputs.static_web_app_sku }}
             containerImage=${{ steps.settings.outputs.bootstrap_image }}
           deploymentMode: Incremental
-
-      - name: Purge soft-deleted Key Vault (Terraform idempotency)
-        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'terraform' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          KV_NAME="${{ steps.settings.outputs.effective_name_prefix }}-kv"
-          DELETED_LOC=$(az keyvault list-deleted --resource-type vault \
-            --query "[?name=='${KV_NAME}'].properties.location | [0]" \
-            -o tsv 2>/dev/null || true)
-          if [[ -n "$DELETED_LOC" ]]; then
-            echo "Purging soft-deleted Key Vault '${KV_NAME}' in '${DELETED_LOC}'..."
-            az keyvault purge --name "${KV_NAME}" --location "${DELETED_LOC}"
-            echo "Purge complete."
-          else
-            echo "No soft-deleted Key Vault '${KV_NAME}' found. Skipping."
-          fi
 
       - name: Deploy core infra with Terraform (without SWA)
         if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'terraform' }}
