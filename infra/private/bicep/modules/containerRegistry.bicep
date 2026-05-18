@@ -20,6 +20,7 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   properties: {
     adminUserEnabled: false
     publicNetworkAccess: 'Disabled'
+    networkRuleBypassOptions: 'AzureServices'
   }
 }
 
