@@ -49,8 +49,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          LOCATION="${{ vars.AZURE_LOCATION }}"
-          CORE_LOCATION="${{ vars.AZURE_CORE_LOCATION }}"
+          LOCATION="${{ vars.AZURE_SWA_LOCATION }}"
+          CORE_LOCATION="${{ vars.AZURE_PRIMARY_LOCATION }}"
           POSTGRES_LOCATION="${{ vars.AZURE_POSTGRES_LOCATION }}"
           STATIC_WEB_APP_LOCATION="${{ vars.AZURE_STATIC_WEB_APP_LOCATION }}"
           STATIC_WEB_APP_SKU="${{ vars.AZURE_STATIC_WEB_APP_SKU }}"
