@@ -132,6 +132,23 @@ jobs:
             containerImage=${{ steps.settings.outputs.bootstrap_image }}
           deploymentMode: Incremental
 
+      - name: Purge soft-deleted Key Vault (Terraform idempotency)
+        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'terraform' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KV_NAME="${{ steps.settings.outputs.effective_name_prefix }}-kv"
+          DELETED_LOC=$(az keyvault list-deleted --resource-type vault \
+            --query "[?name=='${KV_NAME}'].properties.location | [0]" \
+            -o tsv 2>/dev/null || true)
+          if [[ -n "$DELETED_LOC" ]]; then
+            echo "Purging soft-deleted Key Vault '${KV_NAME}' in '${DELETED_LOC}'..."
+            az keyvault purge --name "${KV_NAME}" --location "${DELETED_LOC}"
+            echo "Purge complete."
+          else
+            echo "No soft-deleted Key Vault '${KV_NAME}' found. Skipping."
+          fi
+
       - name: Deploy core infra with Terraform (without SWA)
         if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'terraform' }}
         shell: bash

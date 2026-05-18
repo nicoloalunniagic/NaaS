@@ -7,7 +7,7 @@ data "azurerm_resource_group" "target" {
 locals {
   location                   = coalesce(var.location, data.azurerm_resource_group.target.location)
   postgres_location          = coalesce(var.postgres_location, local.location)
-  tags                       = merge({ app = "no-as-a-service", managedBy = "bicep" }, var.additional_tags)
+  tags                       = merge({ app = "no-as-a-service", managedBy = "terraform" }, var.additional_tags)
   acr_pull_role_id           = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d"
   blob_role_id               = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"
   kv_secrets_role_id         = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6"
@@ -132,12 +132,25 @@ resource "azurerm_role_assignment" "key_vault_secrets_officer" {
   principal_id       = data.azurerm_client_config.current.object_id
 }
 
-resource "azurerm_key_vault_secret" "seeded" {
+# null_resource runs az keyvault secret set which is idempotent (create-or-update).
+# This avoids the "already exists" error that azurerm_key_vault_secret produces
+# when the KV was soft-delete recovered or when re-running the same job.
+resource "null_resource" "seed_kv_secrets" {
   for_each = local.key_vault_seed_secrets
 
-  name         = each.key
-  value        = each.value
-  key_vault_id = azurerm_key_vault.vault.id
+  triggers = {
+    kv_name = azurerm_key_vault.vault.name
+  }
+
+  provisioner "local-exec" {
+    # Secret value is passed via env var so it does not appear in TF logs.
+    command = "az keyvault secret set --vault-name \"$KV_NAME\" --name \"$SECRET_NAME\" --value \"$SECRET_VALUE\" --output none"
+    environment = {
+      KV_NAME      = azurerm_key_vault.vault.name
+      SECRET_NAME  = each.key
+      SECRET_VALUE = each.value
+    }
+  }
 
   depends_on = [
     azurerm_role_assignment.key_vault_secrets_user,
@@ -278,7 +291,7 @@ resource "azurerm_container_app" "api" {
   }
 
   depends_on = [
-    azurerm_key_vault_secret.seeded,
+    null_resource.seed_kv_secrets,
     azurerm_role_assignment.acr_pull,
     azurerm_role_assignment.blob_contributor
   ]
