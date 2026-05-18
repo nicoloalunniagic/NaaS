@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       topology:
-        required: true
+        required: false
         type: choice
         options: [public, private]
         default: public
@@ -236,8 +236,8 @@ jobs:
             --query properties.configuration.ingress.fqdn -o tsv)
           echo "api_base_url=https://$CONTAINER_APP_FQDN" >> "$GITHUB_OUTPUT"
 
-      - name: Provision SWA with Bicep
-        if: ${{ inputs.infra_tool == 'bicep' }}
+      - name: Deploy SWA with Bicep
+        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'bicep' }}
         uses: azure/arm-deploy@v2
         with:
           subscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -250,8 +250,8 @@ jobs:
             apiBaseUrl=${{ steps.resolve.outputs.api_base_url || '' }}
           deploymentMode: Incremental
 
-      - name: Provision SWA with Terraform
-        if: ${{ inputs.infra_tool == 'terraform' }}
+      - name: Deploy SWA with Terraform
+        if: ${{ inputs.skip_infra == false && inputs.infra_tool == 'terraform' }}
         shell: bash
         env:
           ARM_USE_OIDC: true
@@ -339,7 +339,7 @@ jobs:
             --query defaultHostname -o tsv)
           echo "static_web_app_url=https://$STATIC_WEB_APP_FQDN" >> "$GITHUB_OUTPUT"
 
-      - name: Smoke test deployed SPA
+      - name: Smoke test API and SPA
         if: ${{ inputs.skip_smoke == false && inputs.topology == 'public' }}
         shell: bash
         run: |
