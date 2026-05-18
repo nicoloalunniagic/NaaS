@@ -125,6 +125,7 @@ jobs:
             infra/${{ inputs.topology }}/bicep/dev.bicepparam
             namePrefix=${{ steps.settings.outputs.effective_name_prefix }}
             location=${{ steps.settings.outputs.core_location }}
+            postgresLocation=${{ steps.settings.outputs.postgres_location }}
             deployStaticWebApp=false
             staticWebAppLocation=${{ steps.settings.outputs.static_web_app_location }}
             staticWebAppSku=${{ steps.settings.outputs.static_web_app_sku }}
