@@ -146,6 +146,7 @@ resource hubDnsLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020
     virtualNetwork: { id: hubVnet.id }
     registrationEnabled: false
   }
+  dependsOn: [hubVnet]
 }]
 
 // Link every zone to the spoke VNet — VNet peering does NOT auto-extend
@@ -158,6 +159,7 @@ resource spokeDnsLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@20
     virtualNetwork: { id: spokeVnet.id }
     registrationEnabled: false
   }
+  dependsOn: [spokeVnet]
 }]
 
 // ── Outputs ───────────────────────────────────────────────────────────────────
