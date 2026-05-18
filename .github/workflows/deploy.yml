@@ -23,7 +23,7 @@ on:
         default: false
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-${{ inputs.topology }}-${{ inputs.infra_tool }}
   cancel-in-progress: false
 
 permissions:
