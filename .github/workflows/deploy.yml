@@ -228,7 +228,6 @@ jobs:
             --output none
 
       - name: Resolve API base URL
-        if: inputs.topology == 'public'
         id: resolve
         shell: bash
         run: |
@@ -305,6 +304,20 @@ jobs:
           fi
 
           echo "static_web_app_name=$FALLBACK" >> "$GITHUB_OUTPUT"
+
+      - name: Update Container App CORS origins
+        shell: bash
+        run: |
+          set -euo pipefail
+          SWA_HOSTNAME=$(az staticwebapp show \
+            --name "${{ steps.discover_swa.outputs.static_web_app_name }}" \
+            --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
+            --query defaultHostname -o tsv)
+          az containerapp update \
+            --name "${{ steps.discover_core.outputs.container_app_name }}" \
+            --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
+            --set-env-vars "CORS_ALLOWED_ORIGINS=https://${SWA_HOSTNAME}" \
+            --output none
 
       - name: Build SPA
         working-directory: src/web
