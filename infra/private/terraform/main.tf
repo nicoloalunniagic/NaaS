@@ -460,7 +460,7 @@ resource "azurerm_private_endpoint" "ampls" {
   tags                = local.tags
 
   depends_on = [
-    azurerm_monitor_private_link_scoped_service.appi,
+    azurerm_monitor_private_link_scoped_service.app_insights,
     azurerm_monitor_private_link_scoped_service.law,
   ]
 
