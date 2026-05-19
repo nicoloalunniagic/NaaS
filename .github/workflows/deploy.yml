@@ -4,20 +4,24 @@ on:
   workflow_dispatch:
     inputs:
       topology:
+        description: "Network topology — public (open endpoints) or private (hub-and-spoke VNet)"
         required: false
         type: choice
         options: [public, private]
         default: public
       infra_tool:
+        description: "IaC tool — bicep or terraform"
         required: false
         type: choice
         options: [bicep, terraform]
         default: bicep
       skip_infra:
+        description: "Fast path — skip infra deploy, update image only (requires existing resources)"
         required: false
         type: boolean
         default: false
       skip_smoke:
+        description: "Skip smoke test"
         required: false
         type: boolean
         default: false
@@ -385,13 +389,15 @@ jobs:
           {
             echo "### Deployment completed"
             echo ""
-            echo "- Resource group: ${{ steps.settings.outputs.effective_resource_group }}"
-            echo "- Topology: ${{ inputs.topology }}"
-            echo "- Infra tool: ${{ inputs.infra_tool }}"
-            echo "- Name prefix: ${{ steps.settings.outputs.effective_name_prefix }}"
-            echo "- Container App: ${{ steps.discover_core.outputs.container_app_name }}"
-            echo "- API image: ${{ env.IMAGE_URI }}"
-            echo "- Static Web App: ${{ steps.discover_swa.outputs.static_web_app_name }}"
-            echo "- URL: ${{ steps.app_url.outputs.static_web_app_url }}"
-            echo "- API URL: ${{ inputs.topology == 'public' && steps.resolve.outputs.api_base_url || 'internal VNet only' }}"
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Resource group | ${{ steps.settings.outputs.effective_resource_group }} |"
+            echo "| Topology | ${{ inputs.topology }} |"
+            echo "| Infra tool | ${{ inputs.infra_tool }} |"
+            echo "| Name prefix | ${{ steps.settings.outputs.effective_name_prefix }} |"
+            echo "| Container App | ${{ steps.discover_core.outputs.container_app_name }} |"
+            echo "| API image | ${{ env.IMAGE_URI }} |"
+            echo "| Static Web App | ${{ steps.discover_swa.outputs.static_web_app_name }} |"
+            echo "| URL | ${{ steps.app_url.outputs.static_web_app_url }} |"
+            echo "| API URL | ${{ inputs.topology == 'public' && steps.resolve.outputs.api_base_url || 'internal VNet only' }} |"
           } >> "$GITHUB_STEP_SUMMARY"
