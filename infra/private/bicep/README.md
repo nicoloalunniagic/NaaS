@@ -122,7 +122,7 @@ Poi riesegui il deploy Bicep con `containerImage` puntato al tag pubblicato.
 
 ## Deploy automatizzato con GitHub Actions
 
-File workflow: [.github/workflows/deploy-public.yml](../../.github/workflows/deploy-public.yml)
+File workflow: [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml)
 
 Il workflow unificato gestisce in un'unica dispatch: provisioning infra, rollout immagine API e pubblicazione SPA.
 Al momento del dispatch si sceglie `infra_tool = bicep` (default) o `terraform`.

@@ -157,7 +157,7 @@ Both IaC stacks provision a Static Web App resource. The Container App is
 configured with `CORS_ALLOWED_ORIGINS` pointing at the SWA URL so the SPA
 can call the API directly.
 
-The unified workflow [.github/workflows/deploy-public.yml](.github/workflows/deploy-public.yml)
+The unified workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
 handles infrastructure provisioning, API image rollout, and SPA publish in
 one dispatch. It builds the SPA with `VITE_API_BASE_URL` set to the
 deployed API URL and pushes the artifact to the Static Web App.
@@ -186,7 +186,7 @@ Operational documentation and the editorial pre-merge checklist are available in
 
 ## Azure infrastructure
 
-Azure IaC documentation is available in [infra/public/bicep/README.md](infra/public/bicep/README.md) (Bicep) and [infra/public/terraform/](infra/public/terraform/) (Terraform).
+Azure IaC documentation is available in [infra/public/bicep/README.md](infra/public/bicep/README.md) (Bicep) and [infra/public/terraform/](infra/public/terraform/main.tf) (Terraform).
 
 Automated Azure deployment is available via the single unified workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
 Choose `bicep` or `terraform` as the `infra_tool` input at dispatch time. Each tool provisions its resources in a dedicated resource group and with its own name prefix suffix to avoid collisions.
