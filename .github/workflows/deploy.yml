@@ -360,7 +360,7 @@ jobs:
           echo "static_web_app_url=https://$STATIC_WEB_APP_FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test API and SPA
-        if: ${{ inputs.skip_smoke == false && inputs.topology == 'public' }}
+        if: ${{ inputs.skip_smoke == false }}
         shell: bash
         run: |
           API_BASE_URL="${{ steps.resolve.outputs.api_base_url }}"
@@ -399,5 +399,5 @@ jobs:
             echo "| API image | ${{ env.IMAGE_URI }} |"
             echo "| Static Web App | ${{ steps.discover_swa.outputs.static_web_app_name }} |"
             echo "| URL | ${{ steps.app_url.outputs.static_web_app_url }} |"
-            echo "| API URL | ${{ inputs.topology == 'public' && steps.resolve.outputs.api_base_url || 'internal VNet only' }} |"
+            echo "| API URL | ${{ steps.resolve.outputs.api_base_url }} |"
           } >> "$GITHUB_STEP_SUMMARY"
