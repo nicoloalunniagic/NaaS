@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Validate markdown internal links
         shell: pwsh
@@ -104,7 +104,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -125,7 +125,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -141,3 +141,34 @@ jobs:
       - name: Terraform validate
         working-directory: infra/public/terraform
         run: terraform validate
+
+      - name: Terraform format check (private)
+        working-directory: infra/private/terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init (private)
+        working-directory: infra/private/terraform
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate (private)
+        working-directory: infra/private/terraform
+        run: terraform validate
+
+  bicep-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: |
+          curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x bicep
+          sudo mv bicep /usr/local/bin/bicep
+
+      - name: Bicep build (public)
+        run: bicep build infra/public/bicep/main.bicep
+
+      - name: Bicep build (private)
+        run: bicep build infra/private/bicep/main.bicep
