@@ -168,3 +168,9 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "deploy_app_insights" {
+  description = "Controls whether Application Insights, AMPLS, and the AMPLS private endpoint are deployed."
+  type        = bool
+  default     = true
+}

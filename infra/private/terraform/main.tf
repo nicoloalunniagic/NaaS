@@ -419,6 +419,8 @@ resource "azurerm_container_app" "api" {
 # ── Application Insights + AMPLS ──────────────────────────────────────────────
 
 resource "azurerm_application_insights" "app" {
+  count = var.deploy_app_insights ? 1 : 0
+
   name                = "${var.name_prefix}-appi"
   location            = local.location
   resource_group_name = data.azurerm_resource_group.target.name
@@ -431,6 +433,8 @@ resource "azurerm_application_insights" "app" {
 # private endpoint covering all five Azure Monitor DNS zones. Ingestion and
 # query traffic is forced through the private endpoint (PrivateOnly).
 resource "azurerm_monitor_private_link_scope" "ampls" {
+  count = var.deploy_app_insights ? 1 : 0
+
   name                  = "${var.name_prefix}-appi-ampls"
   resource_group_name   = data.azurerm_resource_group.target.name
   ingestion_access_mode = "PrivateOnly"
@@ -439,22 +443,28 @@ resource "azurerm_monitor_private_link_scope" "ampls" {
 }
 
 resource "azurerm_monitor_private_link_scoped_service" "app_insights" {
+  count = var.deploy_app_insights ? 1 : 0
+
   name                = "${var.name_prefix}-appi-ai-scoped"
   resource_group_name = data.azurerm_resource_group.target.name
-  scope_name          = azurerm_monitor_private_link_scope.ampls.name
-  linked_resource_id  = azurerm_application_insights.app.id
+  scope_name          = azurerm_monitor_private_link_scope.ampls[0].name
+  linked_resource_id  = azurerm_application_insights.app[0].id
 }
 
 resource "azurerm_monitor_private_link_scoped_service" "law" {
+  count = var.deploy_app_insights ? 1 : 0
+
   name                = "${var.name_prefix}-appi-law-scoped"
   resource_group_name = data.azurerm_resource_group.target.name
-  scope_name          = azurerm_monitor_private_link_scope.ampls.name
+  scope_name          = azurerm_monitor_private_link_scope.ampls[0].name
   linked_resource_id  = azurerm_log_analytics_workspace.law.id
 }
 
 # All five Azure Monitor DNS zones must be present on a single DNS zone group —
 # this is an Azure Monitor requirement, not a Terraform constraint.
 resource "azurerm_private_endpoint" "ampls" {
+  count = var.deploy_app_insights ? 1 : 0
+
   name                = "${var.name_prefix}-appi-ampls-pe"
   location            = local.location
   resource_group_name = data.azurerm_resource_group.target.name
@@ -468,7 +478,7 @@ resource "azurerm_private_endpoint" "ampls" {
 
   private_service_connection {
     name                           = "${var.name_prefix}-appi-ampls-pe-connection"
-    private_connection_resource_id = azurerm_monitor_private_link_scope.ampls.id
+    private_connection_resource_id = azurerm_monitor_private_link_scope.ampls[0].id
     subresource_names              = ["azuremonitor"]
     is_manual_connection           = false
   }

@@ -89,7 +89,7 @@ output "key_vault_uri" {
 # ── Observability ─────────────────────────────────────────────────────────────
 
 output "app_insights_name" {
-  value       = azurerm_application_insights.app.name
+  value       = try(azurerm_application_insights.app[0].name, null)
   description = "Application Insights component name."
 }
 

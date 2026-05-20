@@ -56,6 +56,9 @@ param staticWebAppSku string = 'Free'
 @description('Controls whether the Static Web App resource is deployed by this template.')
 param deployStaticWebApp bool = true
 
+@description('Controls whether Application Insights is deployed.')
+param deployAppInsights bool = true
+
 @description('Administrator login for the PostgreSQL Flexible Server')
 param dbAdministratorLogin string = 'naasadmin'
 
@@ -75,6 +78,16 @@ var tags = {
   managedBy: 'bicep'
 }
 
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: '${namePrefix}-law'
+  location: location
+  tags: tags
+  properties: {
+    sku: { name: 'PerGB2018' }
+    retentionInDays: 30
+  }
+}
+
 module foundation './foundation.bicep' = {
   name: 'foundation'
   params: {
@@ -82,6 +95,7 @@ module foundation './foundation.bicep' = {
     namePrefix: namePrefix
     tags: tags
     enableZoneRedundancy: enableZoneRedundancy
+    logAnalyticsWorkspaceId: logAnalyticsWorkspace.id
   }
 }
 
@@ -203,6 +217,16 @@ module staticWebApp './modules/staticWebApp.bicep' = if (deployStaticWebApp) {
   }
 }
 
+module appInsights './modules/appInsights.bicep' = if (deployAppInsights) {
+  name: 'appInsights'
+  params: {
+    name: '${namePrefix}-appi'
+    location: location
+    tags: tags
+    workspaceResourceId: logAnalyticsWorkspace.id
+  }
+}
+
 
 
 output containerRegistryName string = containerRegistry.outputs.name
@@ -223,3 +247,4 @@ output postgresDatabaseName string = postgres.outputs.databaseName
 
 output keyVaultName string = keyVault.outputs.name
 output keyVaultUri string = keyVault.outputs.uri
+output appInsightsName string = deployAppInsights ? appInsights!.outputs.name : ''

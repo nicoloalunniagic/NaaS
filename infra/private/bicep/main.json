@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "2395905827530330727"
+      "templateHash": "3567717984842848518"
     }
   },
   "parameters": {
@@ -202,7 +202,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "15192563235466659695"
+              "templateHash": "8721780419472163899"
             }
           },
           "parameters": {
@@ -282,7 +282,15 @@
                   {
                     "name": "cae-infra-subnet",
                     "properties": {
-                      "addressPrefix": "[variables('caeSubnetPrefix')]"
+                      "addressPrefix": "[variables('caeSubnetPrefix')]",
+                      "delegations": [
+                        {
+                          "name": "cae-delegation",
+                          "properties": {
+                            "serviceName": "Microsoft.App/environments"
+                          }
+                        }
+                      ]
                     }
                   },
                   {
@@ -373,7 +381,9 @@
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Network/privateDnsZones', variables('dnsZoneNames')[copyIndex()])]",
-                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-hub-vnet', parameters('namePrefix')))]"
+                "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', format('{0}-hub-vnet', parameters('namePrefix')), 'hub-to-spoke')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-hub-vnet', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', format('{0}-spoke-vnet', parameters('namePrefix')), 'spoke-to-hub')]"
               ]
             },
             {
@@ -393,6 +403,8 @@
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Network/privateDnsZones', variables('dnsZoneNames')[copyIndex()])]",
+                "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', format('{0}-hub-vnet', parameters('namePrefix')), 'hub-to-spoke')]",
+                "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', format('{0}-spoke-vnet', parameters('namePrefix')), 'spoke-to-hub')]",
                 "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-spoke-vnet', parameters('namePrefix')))]"
               ]
             }
@@ -569,7 +581,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "10949515999648040418"
+              "templateHash": "10405695161377682074"
             }
           },
           "parameters": {
@@ -611,7 +623,7 @@
               },
               "properties": {
                 "adminUserEnabled": false,
-                "publicNetworkAccess": "Disabled"
+                "publicNetworkAccess": "Enabled"
               }
             },
             {

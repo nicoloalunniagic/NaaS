@@ -59,6 +59,7 @@ resource "azurerm_storage_account" "blob" {
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
   https_traffic_only_enabled      = true
+  shared_access_key_enabled       = false
 
   tags = local.tags
 }
