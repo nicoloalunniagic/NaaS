@@ -15,7 +15,7 @@ Tiny ASP.NET Core API on .NET 10 with Docker support.
 - Local PostgreSQL database in Docker Compose
 - React + TypeScript front-end (Vite) for managing customers and projects
 - Docker build and compose setup
-- GitHub Actions CI for restore, test, and Docker build
+- GitHub Actions CI: docs link check, build and test, Bicep validation, and Terraform validation
 
 ## Quick start
 
@@ -162,23 +162,15 @@ handles infrastructure provisioning, API image rollout, and SPA publish in
 one dispatch. It builds the SPA with `VITE_API_BASE_URL` set to the
 deployed API URL and pushes the artifact to the Static Web App.
 
-Required repository / environment variables:
-
-- `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (OIDC)
-- `AZURE_RESOURCE_GROUP` — base resource group name (suffixed with `-b` for Bicep, `-t` for Terraform)
-- `AZURE_NAME_PREFIX` — base name prefix (suffixed with `b` or `t` to scope resources per IaC tool)
-- `AZURE_LOCATION` — default Azure region
-- `AZURE_CORE_LOCATION` — optional override for Container Apps / PostgreSQL region (useful when a region has capacity constraints)
-- `AZURE_STATIC_WEB_APP_LOCATION` — optional override for the Static Web App region
-- `AZURE_STATIC_WEB_APP_SKU` — optional; defaults to `Free`
-
 The workflow discovers Static Web App and Container App resources directly
 from the resource group; no explicit resource name variable is required.
+See the [Azure infrastructure](#azure-infrastructure) section for the full
+variable reference.
 
 ## Repository essentials
 
 - `.gitignore` for .NET and local tooling artifacts
-- `.github/workflows/ci.yml` for GitHub Actions
+- `.github/workflows/ci.yml` — four jobs: docs link check, build and test, Bicep validation (`bicep-validate`), and Terraform validation (`terraform-validate`, covers both topologies)
 
 ## Documentation
 
@@ -186,18 +178,51 @@ Operational documentation and the editorial pre-merge checklist are available in
 
 ## Azure infrastructure
 
-Azure IaC documentation is available in [infra/public/bicep/README.md](infra/public/bicep/README.md) (Bicep) and [infra/public/terraform/](infra/public/terraform/main.tf) (Terraform).
+Two network topologies are available: **public** (open endpoints) and **private** (hub-and-spoke VNet with private endpoints).
 
-Automated Azure deployment is available via the single unified workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
-Choose `bicep` or `terraform` as the `infra_tool` input at dispatch time. Each tool provisions its resources in a dedicated resource group and with its own name prefix suffix to avoid collisions.
+Infrastructure detail by topology:
 
-The stack provisions a PostgreSQL Flexible Server and an Azure Key Vault.
-The database connection string is stored as a secret named
-`database-connection-string` in the vault. The JWT key is stored as
-`jwt-signing-key`. The Container App references both through Key Vault secret
-references (using the User-Assigned Managed Identity with the _Key Vault
-Secrets User_ role) and exposes them to the application as
-`DATABASE_CONNECTION_STRING` and `JWT_SIGNING_KEY`.
+- Public topology — [infra/public/bicep/README.md](infra/public/bicep/README.md)
+- Private topology — [infra/private/bicep/README.md](infra/private/bicep/README.md)
 
-The deployment reads `DB_ADMIN_PASSWORD` and `JWT_SIGNING_KEY` from GitHub
-environment secrets.
+Terraform mirrors the Bicep topology in each case; see the Bicep README for the canonical infrastructure description.
+
+Automated deployment is available via the single unified workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+
+### Workflow inputs
+
+| Input        | Values                 | Default                                            |
+| ------------ | ---------------------- | -------------------------------------------------- |
+| `topology`   | `public` \| `private`  | `public`                                           |
+| `infra_tool` | `bicep` \| `terraform` | `bicep`                                            |
+| `skip_infra` | `true` \| `false`      | `false` — fast path: skip infra, update image only |
+| `skip_smoke` | `true` \| `false`      | `false`                                            |
+
+Each topology+tool combination deploys into a dedicated resource group. The group name is `AZURE_RESOURCE_GROUP` suffixed with `-pb` (public Bicep), `-pt` (public Terraform), `-xb` (private Bicep), or `-xt` (private Terraform).
+
+### Required repository / environment variables
+
+**Required:**
+
+- `AZURE_CLIENT_ID` — service principal client ID for OIDC
+- `AZURE_TENANT_ID` — Azure AD tenant ID
+- `AZURE_SUBSCRIPTION_ID` — target subscription
+- `AZURE_RESOURCE_GROUP` — base resource group name (see suffix logic above)
+- `AZURE_NAME_PREFIX` — base name prefix (keep short; combined with run number and a two-char topology+tool code, total effective prefix must stay ≤ 12 chars)
+- `AZURE_PRIMARY_LOCATION` — Azure region for Container Apps and PostgreSQL
+- `AZURE_SWA_LOCATION` — Azure region for the Static Web App
+
+**Optional (workflow falls back to defaults if unset):**
+
+- `AZURE_POSTGRES_LOCATION` — override PostgreSQL region (defaults to `AZURE_PRIMARY_LOCATION`)
+- `AZURE_STATIC_WEB_APP_LOCATION` — override SWA region (defaults to `AZURE_SWA_LOCATION`)
+- `AZURE_STATIC_WEB_APP_SKU` — SWA SKU (defaults to `Free`)
+
+**Secrets (set in GitHub environment secrets, not variables):**
+
+- `DB_ADMIN_PASSWORD`
+- `JWT_SIGNING_KEY`
+
+### Secret handling
+
+The stack provisions a PostgreSQL Flexible Server and an Azure Key Vault. Bicep (both topologies) and public Terraform seed `database-connection-string` and `jwt-signing-key` into Key Vault and reference them via Container App Key Vault secret references using the User-Assigned Managed Identity. Private Terraform cannot seed secrets because the Key Vault data plane is unreachable from GitHub-hosted runners when public network access is disabled; in that topology the Container App receives secret values directly.
