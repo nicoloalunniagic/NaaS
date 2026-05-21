@@ -1,105 +1,105 @@
-# Infrastruttura Azure per No-as-a-Service
+# Azure Infrastructure for No-as-a-Service
 
-Questa cartella contiene Infrastructure-as-Code per distribuire la web app su Azure usando Bicep.
+This folder contains Infrastructure-as-Code to deploy the web app on Azure using Bicep.
 
-## Struttura
+## Structure
 
-- `main.bicep`: entry point di orchestrazione
-- `foundation.bicep`: risorse condivise/base
-- `modules/containerRegistry.bicep`: modulo ACR
-- `modules/containerApp.bicep`: modulo Azure Container App
-- `modules/blobStorage.bicep`: modulo Storage Account + container blob + RBAC upload
-- `modules/appInsights.bicep`: modulo opzionale Application Insights
-- `dev.bicepparam`: set parametri ambiente Azure usato dal workflow GitHub (`environment: dev`)
+- `main.bicep`: orchestration entry point
+- `foundation.bicep`: shared/base resources
+- `modules/containerRegistry.bicep`: ACR module
+- `modules/containerApp.bicep`: Azure Container App module
+- `modules/blobStorage.bicep`: Storage Account + blob container + upload RBAC module
+- `modules/appInsights.bicep`: optional Application Insights module
+- `dev.bicepparam`: Azure environment parameter set used by the GitHub workflow (`environment: dev`)
 
-## Standard di modularizzazione Bicep
+## Bicep modularisation standards
 
-Usa `main.bicep` solo come orchestratore. Mantieni le definizioni delle risorse Azure all'interno di moduli dedicati.
+Use `main.bicep` as the orchestrator only. Keep Azure resource definitions inside dedicated modules.
 
-Principi:
+Principles:
 
-- Un modulo = una capability (registry, runtime app, observability, networking)
-- `main.bicep` deve contenere solo parametri, tag condivisi, chiamate ai moduli e wiring
-- I moduli devono esporre contratti input/output minimi
-- Le differenze tra ambienti devono stare nei file `.bicepparam`, non essere hardcoded nei moduli
-- Preferisci modifiche additive nei moduli per ridurre il blast radius del deploy
+- One module = one capability (registry, app runtime, observability, networking)
+- `main.bicep` must contain only parameters, shared tags, module calls, and wiring
+- Modules must expose minimal input/output contracts
+- Environment differences must live in `.bicepparam` files, not be hardcoded in modules
+- Prefer additive changes in modules to reduce the deploy blast radius
 
-Convenzioni di naming:
+Naming conventions:
 
-- Nomi file modulo: `camelCase` per capability (esempio `containerApp.bicep`)
-- Nomi istanza modulo in `main.bicep`: `mdl<Capability>` (esempio `mdlContainerApp`)
-- Output: nomi espliciti e stabili (esempio `containerAppUrl`, `containerRegistryLoginServer`)
-- I prefissi dei nomi delle risorse devono arrivare dai parametri (`namePrefix`) ed essere compatibili con l'ambiente
+- Module file names: `camelCase` per capability (e.g. `containerApp.bicep`)
+- Module instance names in `main.bicep`: `mdl<Capability>` (e.g. `mdlContainerApp`)
+- Outputs: explicit and stable names (e.g. `containerAppUrl`, `containerRegistryLoginServer`)
+- Resource name prefixes must come from parameters (`namePrefix`) and be environment-compatible
 
-Quando creare un nuovo modulo:
+When to create a new module:
 
-- Il blocco risorse cresce oltre una responsabilita' semplice
-- Lo stesso pattern di risorse e' previsto come riutilizzabile
-- Il ciclo di vita o la frequenza di modifica differiscono dalle risorse circostanti
-- Ownership e review sono divise tra aree del team
+- The resource block grows beyond a single responsibility
+- The same resource pattern is expected to be reused
+- The lifecycle or change frequency differs from surrounding resources
+- Ownership and review are split across team areas
 
-Forma consigliata del contratto modulo:
+Recommended module contract shape:
 
-- Input: `location`, `namePrefix`, `tags`, poi parametri specifici della capability
-- Output: `id`, `name` e solo endpoint/identificatori consumati all'esterno
+- Inputs: `location`, `namePrefix`, `tags`, then capability-specific parameters
+- Outputs: `id`, `name`, and only the endpoints/identifiers consumed externally
 
-## Checklist pull request (infra)
+## Pull request checklist (infra)
 
-- `main.bicep` orchestra, i moduli implementano
-- Nessun valore ambiente-specifico codificato in modo statico nei moduli
-- I nomi degli output sono stabili e significativi
-- I tag sono applicati in modo coerente
-- `dev.bicepparam` resta valido e allineato al workflow GitHub
-- Le assunzioni su deployment mode sono documentate quando cambiano
+- `main.bicep` orchestrates, modules implement
+- No environment-specific values statically coded in modules
+- Output names are stable and meaningful
+- Tags are applied consistently
+- `dev.bicepparam` remains valid and aligned with the GitHub workflow
+- Deployment mode assumptions are documented when they change
 
-## Cosa viene distribuito
+## What is deployed
 
-- Azure Container Registry (ACR) Basic (singola regione, nessuna geo-replicazione)
+- Azure Container Registry (ACR) Basic (single region, no geo-replication)
 - Azure Log Analytics Workspace
-- Azure Container Apps Environment (single-zone, zone redundancy disabilitata per default)
-- Azure Container App (ingress pubblico su porta 8000)
-- Managed identity user-assigned per il pull delle immagini da ACR
-- Assegnazione RBAC: AcrPull su ACR alla managed identity
-- Azure Storage Account (Blob) Standard_LRS con container `uploads`
-- Assegnazione RBAC: Storage Blob Data Contributor alla managed identity dell'app
+- Azure Container Apps Environment (single-zone, zone redundancy disabled by default)
+- Azure Container App (public ingress on port 8000)
+- User-assigned managed identity for ACR image pull
+- RBAC assignment: AcrPull on ACR to the managed identity
+- Azure Storage Account (Blob) Standard_LRS with `uploads` container
+- RBAC assignment: Storage Blob Data Contributor to the app managed identity
 
-## Integrazione upload app -> blob
+## App upload → blob integration
 
-Il deploy Bicep passa alla Container App le variabili ambiente per lo storage:
+The Bicep deploy passes storage environment variables to the Container App:
 
 - `AZURE_STORAGE_ACCOUNT_NAME`
 - `AZURE_STORAGE_CONTAINER_NAME`
 - `AZURE_CLIENT_ID`
 
-L'app usa `DefaultAzureCredential` in Azure e la managed identity per autenticarsi su Blob.
+The app uses `DefaultAzureCredential` in Azure and the managed identity to authenticate against Blob.
 
-## Parametri disponibili
+## Available parameters
 
-I file `.bicepparam` controllano il comportamento del deploy:
+The `.bicepparam` files control the deploy behaviour:
 
-| Parametro                 | Tipo   | Default                    | Descrizione                                                       |
-| ------------------------- | ------ | -------------------------- | ----------------------------------------------------------------- |
-| `location`                | string | `resourceGroup().location` | Regione Azure (es. `westeurope`)                                  |
-| `postgresLocation`        | string | `location`                 | Regione PostgreSQL (es. `francecentral` se `westeurope` bloccata) |
-| `namePrefix`              | string | -                          | Prefisso per nomi risorse (3-12 caratteri)                        |
-| `containerImage`          | string | -                          | URI immagine container (es. `registry.azurecr.io/app:latest`)     |
-| `containerCpu`            | string | `'0.5'`                    | CPU cores: `'0.25'`, `'0.5'`, `'1.0'`, `'2.0'`                    |
-| `containerMemory`         | string | `'1.0Gi'`                  | RAM: `'0.5Gi'`, `'1.0Gi'`, `'2.0Gi'`, `'4.0Gi'`                   |
-| `minReplicas`             | int    | `1`                        | Replica minime Container App (0-10)                               |
-| `maxReplicas`             | int    | `3`                        | Replica massime Container App (1-20)                              |
-| `enableZoneRedundancy`    | bool   | `false`                    | Abilita zone redundancy CAE (richiede subnet infrastruttura)      |
-| `dbAdministratorLogin`    | string | `'naasadmin'`              | Username admin PostgreSQL                                         |
-| `dbAdministratorPassword` | secure | -                          | Password admin PostgreSQL (`DB_ADMIN_PASSWORD`)                   |
-| `dbName`                  | string | `'naas'`                   | Nome database applicativo                                         |
-| `jwtSigningKey`           | secure | -                          | Chiave usata per firmare i JWT (`JWT_SIGNING_KEY`)                |
+| Parameter                 | Type   | Default                    | Description                                                             |
+| ------------------------- | ------ | -------------------------- | ----------------------------------------------------------------------- |
+| `location`                | string | `resourceGroup().location` | Azure region (e.g. `westeurope`)                                        |
+| `postgresLocation`        | string | `location`                 | PostgreSQL region (e.g. `francecentral` if `westeurope` is unavailable) |
+| `namePrefix`              | string | -                          | Name prefix for Azure resources (3–12 characters)                       |
+| `containerImage`          | string | -                          | Container image URI (e.g. `registry.azurecr.io/app:latest`)             |
+| `containerCpu`            | string | `'0.5'`                    | CPU cores: `'0.25'`, `'0.5'`, `'1.0'`, `'2.0'`                          |
+| `containerMemory`         | string | `'1.0Gi'`                  | RAM: `'0.5Gi'`, `'1.0Gi'`, `'2.0Gi'`, `'4.0Gi'`                         |
+| `minReplicas`             | int    | `1`                        | Minimum Container App replicas (0–10)                                   |
+| `maxReplicas`             | int    | `3`                        | Maximum Container App replicas (1–20)                                   |
+| `enableZoneRedundancy`    | bool   | `false`                    | Enables CAE zone redundancy (requires infrastructure subnet)            |
+| `dbAdministratorLogin`    | string | `'naasadmin'`              | PostgreSQL admin username                                               |
+| `dbAdministratorPassword` | secure | -                          | PostgreSQL admin password (`DB_ADMIN_PASSWORD`)                         |
+| `dbName`                  | string | `'naas'`                   | Application database name                                               |
+| `jwtSigningKey`           | secure | -                          | Key used to sign JWTs (`JWT_SIGNING_KEY`)                               |
 
-## Prerequisiti
+## Prerequisites
 
-- Azure CLI installata
-- Login effettuato con `az login`
-- Subscription selezionata con `az account set --subscription <SUBSCRIPTION_ID>`
+- Azure CLI installed
+- Logged in with `az login`
+- Subscription selected with `az account set --subscription <SUBSCRIPTION_ID>`
 
-## Deploy infrastruttura
+## Deploy infrastructure
 
 ```bash
 az deployment group create \
@@ -107,9 +107,9 @@ az deployment group create \
   --parameters infra/public/bicep/dev.bicepparam
 ```
 
-## Build e push immagine su ACR
+## Build and push image to ACR
 
-Usa l'output `containerRegistryLoginServer` del deploy.
+Use the `containerRegistryLoginServer` output from the deploy.
 
 ```bash
 az acr login --name <ACR_NAME>
@@ -118,56 +118,56 @@ docker build -f docker/Dockerfile -t <ACR_LOGIN_SERVER>/naas:latest .
 docker push <ACR_LOGIN_SERVER>/naas:latest
 ```
 
-Poi riesegui il deploy Bicep con `containerImage` puntato al tag pubblicato.
+Then re-run the Bicep deploy with `containerImage` pointing at the published tag.
 
-## Deploy automatizzato con GitHub Actions
+## Automated deploy with GitHub Actions
 
-File workflow: [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml)
+Workflow file: [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml)
 
-Il workflow unificato gestisce in un'unica dispatch: provisioning infra, rollout immagine API e pubblicazione SPA.
-Al momento del dispatch si sceglie `infra_tool = bicep` (default) o `terraform`.
+The unified workflow handles in a single dispatch: infra provisioning, API image rollout, and SPA publish.
+At dispatch time you choose `infra_tool = bicep` (default) or `terraform`.
 
-Il nome prefix e il resource group vengono derivati automaticamente con un suffisso IaC:
+The name prefix and resource group are derived automatically with an IaC suffix:
 
 - Bicep: prefix `<AZURE_NAME_PREFIX>b`, resource group `<AZURE_RESOURCE_GROUP>-b`
 - Terraform: prefix `<AZURE_NAME_PREFIX>t`, resource group `<AZURE_RESOURCE_GROUP>-t`
 
-Variabili repository richieste (non segreti):
+Required repository variables (not secrets):
 
-- `AZURE_CLIENT_ID`: Client ID dell'applicazione Entra o managed identity user-assigned associata alla credenziale federata
-- `AZURE_TENANT_ID`: tenant ID Azure Entra
-- `AZURE_SUBSCRIPTION_ID`: subscription Azure di destinazione
-- `AZURE_RESOURCE_GROUP`: nome base del resource group (suffisso aggiunto dal workflow)
-- `AZURE_LOCATION`: regione Azure default (esempio: westeurope, eastus)
-- `AZURE_NAME_PREFIX`: prefisso base per i nomi risorsa Azure (lowercase, 3-11 caratteri; il workflow aggiunge il suffisso IaC)
-- `AZURE_CORE_LOCATION` _(opzionale)_: regione alternativa per Container Apps e PostgreSQL — utile quando `AZURE_LOCATION` ha problemi di capacita'
-- `AZURE_POSTGRES_LOCATION` _(opzionale)_: regione specifica per PostgreSQL Flexible Server
-- `AZURE_STATIC_WEB_APP_LOCATION` _(opzionale)_: regione per Static Web App
-- `AZURE_STATIC_WEB_APP_SKU` _(opzionale)_: SKU Static Web App (`Free` default)
+- `AZURE_CLIENT_ID`: client ID of the Entra application or user-assigned managed identity associated with the federated credential
+- `AZURE_TENANT_ID`: Azure Entra tenant ID
+- `AZURE_SUBSCRIPTION_ID`: target Azure subscription
+- `AZURE_RESOURCE_GROUP`: base resource group name (suffix added by the workflow)
+- `AZURE_LOCATION`: default Azure region (e.g. westeurope, eastus)
+- `AZURE_NAME_PREFIX`: base prefix for Azure resource names (lowercase, 3–11 characters; the workflow appends the IaC suffix)
+- `AZURE_CORE_LOCATION` _(optional)_: alternate region for Container Apps and PostgreSQL — useful when `AZURE_LOCATION` has capacity issues
+- `AZURE_POSTGRES_LOCATION` _(optional)_: specific region for PostgreSQL Flexible Server
+- `AZURE_STATIC_WEB_APP_LOCATION` _(optional)_: region for the Static Web App
+- `AZURE_STATIC_WEB_APP_SKU` _(optional)_: Static Web App SKU (`Free` default)
 
-RBAC Azure richiesto per l'identita' federata:
+Azure RBAC required for the federated identity:
 
-- `Contributor` sul resource group di destinazione (per creare RG e fare deploy Bicep)
-- `AcrPush` sull'Azure Container Registry di destinazione (per pubblicare immagini)
+- `Contributor` on the target resource group (to create the RG and run Bicep deploys)
+- `AcrPush` on the target Azure Container Registry (to publish images)
 
-Serve anche una credenziale federata in Azure Entra ID che si fidi del repository/branch o environment GitHub che esegue il workflow.
+A federated credential in Azure Entra ID that trusts the GitHub repository/branch or environment running the workflow is also required.
 
-Il workflow fa le seguenti operazioni:
+The workflow performs the following operations:
 
-- Calcola prefix e resource group effettivi in base all'`infra_tool` scelto
-- Esegue login su Azure con OIDC (`azure/login`)
-- Crea il resource group se necessario
-- Usa `infra/public/bicep/dev.bicepparam` (Bicep) o variabili TF (Terraform) con `deployStaticWebApp=false`
-- Esegue deploy infra core senza SWA (skipbabile con `skip_infra=true`)
-- Esegue build e push dell'immagine app su ACR con tag derivato dal commit SHA
-- Aggiorna la Container App con la nuova immagine
-- Esegue provisioning SWA con lo stesso tool IaC scelto
-- Pubblica la SPA compilata sulla Static Web App
+- Computes the effective prefix and resource group based on the chosen `infra_tool`
+- Logs in to Azure with OIDC (`azure/login`)
+- Creates the resource group if necessary
+- Uses `infra/public/bicep/dev.bicepparam` (Bicep) or TF variables (Terraform) with `deployStaticWebApp=false`
+- Deploys core infra without SWA (skippable with `skip_infra=true`)
+- Builds and pushes the app image to ACR with a tag derived from the commit SHA
+- Updates the Container App with the new image
+- Provisions the SWA with the same chosen IaC tool
+- Publishes the compiled SPA to the Static Web App
 
-## Note di sicurezza
+## Security notes
 
-- `adminUserEnabled` e' disabilitato su ACR
-- Il pull immagine del container usa managed identity, non password del registry
+- `adminUserEnabled` is disabled on ACR
+- Container image pull uses managed identity, not registry password
 - I log sono centralizzati in Log Analytics
 - Le probe di liveness/readiness puntano a `/`
 

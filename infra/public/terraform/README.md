@@ -24,8 +24,8 @@ provider authenticates with the deploying principal's Azure AD identity.
 
 ## Known differences from Bicep
 
-| Area | Bicep | Terraform |
-|---|---|---|
-| Log Analytics Workspace | Created inside `main.bicep`; ID passed to `foundation.bicep` which wires it to the Container App Environment | LAW always created (`azurerm_log_analytics_workspace.law`); also wired to the CAE directly |
-| Application Insights | Deployed when `deployAppInsights = true` (default) | Deployed only when `app_insights_workspace_resource_id` is set (non-null); omitted by default |
-| Storage shared-key auth | `allowSharedKeyAccess: false` | `shared_access_key_enabled = false`; provider sets `storage_use_azuread = true` to avoid 403 on post-create data-plane polling |
+| Area                    | Bicep                                                                                                        | Terraform                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Log Analytics Workspace | Created inside `main.bicep`; ID passed to `foundation.bicep` which wires it to the Container App Environment | LAW always created (`azurerm_log_analytics_workspace.law`); also wired to the CAE directly                                     |
+| Application Insights    | Deployed when `deployAppInsights = true` (default)                                                           | Deployed only when `app_insights_workspace_resource_id` is set (non-null); omitted by default                                  |
+| Storage shared-key auth | `allowSharedKeyAccess: false`                                                                                | `shared_access_key_enabled = false`; provider sets `storage_use_azuread = true` to avoid 403 on post-create data-plane polling |
