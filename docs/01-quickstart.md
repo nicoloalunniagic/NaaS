@@ -11,7 +11,7 @@
 
 ## Avvio rapido
 
-Dalla cartella webapp:
+Dalla root del progetto:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build
@@ -75,7 +75,7 @@ docker compose -f docker/docker-compose.yml down
 
 ## Build/Run manuale senza Compose
 
-Dalla cartella webapp:
+Dalla root del progetto:
 
 ```bash
 docker build -f docker/Dockerfile -t naas .
@@ -84,8 +84,21 @@ docker run --rm -p 8000:8000 naas
 
 ## Esecuzione locale senza Docker
 
-Dalla cartella webapp:
+Dalla root del progetto:
 
 ```bash
 dotnet run --project src/NoAsAService.Api/NoAsAService.Api.csproj
 ```
+
+## Avvio SPA in sviluppo locale
+
+Dalla root del progetto:
+
+```bash
+cd src/web
+npm install
+npm run dev
+```
+
+Il dev server e' su `http://localhost:5173` e fa proxy delle chiamate API verso `http://localhost:8000`.
+L'API deve essere in esecuzione (Docker Compose o `dotnet run`).

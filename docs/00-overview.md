@@ -14,24 +14,28 @@ No-as-a-Service e' una micro API .NET che restituisce rifiuti casuali, generici,
 - JWT authentication (register/login)
 - Azure Blob Storage (upload file)
 - Docker + Docker Compose
+- React + TypeScript (Vite) — SPA front-end
 
 ## Struttura minima
 
 ```text
-webapp/
-  src/
-    NoAsAService.Api/
-      NoAsAService.Api.csproj
-      Program.cs
-      static/
-    tests/
-      NoAsAService.Api.Tests/
-        NoAsAService.Api.Tests.csproj
-  docker/
-    Dockerfile
-    docker-compose.yml
-    Dockerfile.dockerignore
-  docs/
+src/
+  NoAsAService.Api/
+    NoAsAService.Api.csproj
+    Program.cs
+    static/
+  tests/
+    NoAsAService.Api.Tests/
+      NoAsAService.Api.Tests.csproj
+  web/
+    package.json
+    vite.config.ts
+    src/
+docker/
+  Dockerfile
+  docker-compose.yml
+  Dockerfile.dockerignore
+docs/
 ```
 
 ## Comportamento del servizio
