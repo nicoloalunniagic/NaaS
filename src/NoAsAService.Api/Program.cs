@@ -17,6 +17,13 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── VAPT Lab Mode ──────────────────────────────────────────────────────────
+// NOTE: vaptLabMode is read from app.Configuration *after* builder.Build() so
+// that WebApplicationFactory test-time configuration is fully applied before
+// the flag is evaluated. Reading it from builder.Configuration here would
+// capture the value before the DeferredHostBuilder resolves test overrides.
+// ──────────────────────────────────────────────────────────────────────────
+
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
@@ -178,6 +185,26 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// ── VAPT Lab Mode ──────────────────────────────────────────────────────────
+// Read AFTER Build() so test factories (WebApplicationFactory + UseSetting)
+// are fully applied. Set ENABLE_VAPT_LAB_MODE=true ONLY in isolated lab
+// environments — never in production or with real data.
+var vaptLabMode = app.Configuration.GetValue<bool>("ENABLE_VAPT_LAB_MODE");
+// ──────────────────────────────────────────────────────────────────────────
+
+// ── VAPT Lab Mode startup banner ───────────────────────────────────────────
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("VaptLab");
+if (vaptLabMode)
+{
+    startupLogger.LogWarning("═══════════════════════════════════════════════════════════════");
+    startupLogger.LogWarning("  ██╗   ██╗ █████╗ ██████╗ ████████╗    ██╗      █████╗ ██████╗ ");
+    startupLogger.LogWarning("  VAPT LAB MODE ENABLED — intentionally vulnerable             ");
+    startupLogger.LogWarning("  DO NOT use in production or with real data!                  ");
+    startupLogger.LogWarning("  Set ENABLE_VAPT_LAB_MODE=false to restore safe behaviour.   ");
+    startupLogger.LogWarning("═══════════════════════════════════════════════════════════════");
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 // In development (Azurite) the container won't be pre-created by Bicep, so ensure it exists.
 if (app.Environment.IsDevelopment())
 {
@@ -269,6 +296,47 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors(CorsPolicy);
+
+// ── VAPT Lab: Error Leakage middleware ────────────────────────────────────
+// INTENTIONAL VAPT LAB VULNERABILITY (when vaptLabMode=true):
+//   Full exception details (message, type, stack trace) are returned to the
+//   client, allowing information disclosure attacks.
+// Safe behaviour: only a generic message is returned.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next(context);
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        if (vaptLabMode)
+        {
+            // INTENTIONAL VAPT LAB VULNERABILITY: Error Leakage
+            await context.Response.WriteAsJsonAsync(new
+            {
+                status = "error",
+                message = ex.Message,
+                exceptionType = ex.GetType().FullName,
+                stackTrace = ex.StackTrace,
+                vapt_note = "VAPT LAB MODE: technical details exposed intentionally"
+            });
+        }
+        else
+        {
+            // Safe: generic message only — no internal details disclosed
+            await context.Response.WriteAsJsonAsync(new
+            {
+                status = "error",
+                message = "An unexpected error occurred."
+            });
+        }
+    }
+});
+// ──────────────────────────────────────────────────────────────────────────
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -313,7 +381,8 @@ app.UseSwaggerUI(options =>
 app.MapGet("/", () => Results.Ok(new
 {
     service = "no-as-a-service",
-    message = "Ask nicely and get creatively rejected."
+    message = "Ask nicely and get creatively rejected.",
+    vaptLabMode
 }))
 .WithName("GetServiceInfo");
 
@@ -451,9 +520,30 @@ app.MapPost("/upload", async (IFormFile? file, [FromServices] BlobServiceClient?
 var customers = app.MapGroup("/customers").WithTags("Customers");
 customers.RequireAuthorization();
 
-customers.MapGet("", async (AppDbContext db) =>
-    Results.Ok(await db.Customers.AsNoTracking().ToListAsync()))
-    .WithName("ListCustomers");
+customers.MapGet("", async (string? search, AppDbContext db) =>
+{
+    // When no search term is given, always return all customers (safe).
+    if (string.IsNullOrWhiteSpace(search))
+        return Results.Ok(await db.Customers.AsNoTracking().ToListAsync());
+
+    if (vaptLabMode && db.Database.IsRelational())
+    {
+        // INTENTIONAL VAPT LAB VULNERABILITY: SQL Injection via string concatenation.
+        // The `search` value is embedded directly in raw SQL — no parameterisation.
+        // Example payload: ' OR '1'='1' --
+        // In safe mode the query below is replaced by a parameterised EF LINQ query.
+        var rawSql =
+            $"""SELECT "Id","Name","Email","CodiceFiscale","CreatedAt" FROM customers WHERE "Name" ILIKE '%{search}%'""";
+        return Results.Ok(await db.Customers.FromSqlRaw(rawSql).AsNoTracking().ToListAsync());
+    }
+
+    // Safe: EF Core generates a parameterised LIKE query automatically.
+    return Results.Ok(await db.Customers
+        .Where(c => c.Name.Contains(search))
+        .AsNoTracking()
+        .ToListAsync());
+})
+.WithName("ListCustomers");
 
 customers.MapGet("/{id:int}", async (int id, AppDbContext db) =>
 {
@@ -544,14 +634,26 @@ projects.MapGet("", async (AppDbContext db) =>
     Results.Ok(await db.Projects.AsNoTracking().ToListAsync()))
     .WithName("ListProjects");
 
-projects.MapGet("/{id:int}", async (int id, AppDbContext db) =>
+projects.MapGet("/{id:int}", async (int id, AppDbContext db, HttpContext httpContext) =>
 {
     var project = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-    return project is null ? Results.NotFound() : Results.Ok(project);
+    if (project is null) return Results.NotFound();
+
+    if (!vaptLabMode)
+    {
+        // Safe: verify the requesting user owns this project.
+        var currentUserId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (project.OwnerUserId?.ToString() != currentUserId)
+            return Results.Forbid();
+    }
+    // INTENTIONAL VAPT LAB VULNERABILITY (IDOR): in VAPT mode, ownership is not
+    // verified — any authenticated user can enumerate projects by guessing IDs.
+
+    return Results.Ok(project);
 })
 .WithName("GetProject");
 
-projects.MapPost("", async (Project input, AppDbContext db) =>
+projects.MapPost("", async (Project input, AppDbContext db, HttpContext httpContext) =>
 {
     if (string.IsNullOrWhiteSpace(input.Name))
         return Results.BadRequest(new { status = "error", message = "Name is required." });
@@ -560,11 +662,14 @@ projects.MapPost("", async (Project input, AppDbContext db) =>
     if (!customerExists)
         return Results.BadRequest(new { status = "error", message = "CustomerId does not match an existing customer." });
 
+    var currentUserId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
     var project = new Project
     {
         Name = input.Name.Trim(),
         Description = input.Description,
-        CustomerId = input.CustomerId
+        CustomerId = input.CustomerId,
+        OwnerUserId = int.TryParse(currentUserId, out var uid) ? uid : null
     };
     db.Projects.Add(project);
     await db.SaveChangesAsync();
@@ -604,6 +709,57 @@ projects.MapDelete("/{id:int}", async (int id, AppDbContext db) =>
 })
 .WithName("DeleteProject");
 
+// ── VAPT Lab: Broken Role Check ───────────────────────────────────────────
+// INTENTIONAL VAPT LAB VULNERABILITY (when vaptLabMode=true):
+//   The /admin/stats endpoint skips the role check — any authenticated user
+//   can access it. In safe mode only users with the "admin" role claim can.
+//   To get an admin JWT, register a user with the username "admin".
+var admin = app.MapGroup("/admin").WithTags("Admin").RequireAuthorization();
+
+admin.MapGet("/stats", async (AppDbContext db, HttpContext httpContext) =>
+{
+    if (!vaptLabMode)
+    {
+        // Safe: require the "admin" role claim embedded in the JWT.
+        var role = httpContext.User.FindFirst(ClaimTypes.Role)?.Value;
+        if (role != "admin")
+            return Results.Forbid();
+    }
+    // INTENTIONAL VAPT LAB VULNERABILITY: in VAPT mode only authentication
+    // is enforced (by RequireAuthorization()), the role check is bypassed.
+
+    var customerCount = await db.Customers.CountAsync();
+    var projectCount = await db.Projects.CountAsync();
+    var userCount = await db.Users.CountAsync();
+
+    return Results.Ok(new
+    {
+        customerCount,
+        projectCount,
+        userCount,
+        vapt_note = vaptLabMode
+            ? "VAPT LAB MODE: role check was bypassed — non-admin accessed this endpoint"
+            : null
+    });
+})
+.WithName("AdminStats");
+// ──────────────────────────────────────────────────────────────────────────
+
+// ── VAPT Lab: error trigger (error leakage demo) ──────────────────────────
+// This endpoint always throws so the error-leakage middleware can be
+// observed. In safe mode it returns a generic 500; in VAPT mode it returns
+// full stack trace + exception type.
+app.MapGet("/vapt/trigger-error", () =>
+{
+    throw new InvalidOperationException(
+        "Simulated internal error for VAPT demonstration. " +
+        "Sensitive data: DB_CONN=Server=db.internal;User=app_user;Password=L4bP@ssw0rd!");
+})
+.RequireAuthorization()
+.WithName("VaptTriggerError")
+.WithTags("VAPT Lab");
+// ──────────────────────────────────────────────────────────────────────────
+
 app.Run();
 
 static IResult? ValidateCustomer(Customer input)
@@ -637,13 +793,18 @@ static string? ValidateCredentials(string username, string password)
 static string CreateJwtToken(User user, SecurityKey signingKey, string issuer, string audience, DateTime expiresAt)
 {
     var creds = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
-    var claims = new[]
+    var claims = new List<Claim>
     {
         new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
         new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
         new Claim(ClaimTypes.Name, user.Username)
     };
+
+    // The reserved "admin" username receives an admin role claim in the JWT.
+    // Use this account to test the broken-role-check VAPT scenario.
+    if (user.NormalizedUsername == "ADMIN")
+        claims.Add(new Claim(ClaimTypes.Role, "admin"));
 
     var token = new JwtSecurityToken(
         issuer: issuer,

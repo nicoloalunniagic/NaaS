@@ -5,12 +5,30 @@ import CustomerDetailPage from './pages/CustomerDetailPage'
 import ProjectsPage from './pages/ProjectsPage'
 import { api, getAuthToken, setAuthToken } from './api'
 
+// VAPT Lab Mode flag — set VITE_ENABLE_VAPT_LAB_MODE=true in .env.local to enable.
+const VAPT_LAB_MODE = import.meta.env.VITE_ENABLE_VAPT_LAB_MODE === 'true'
+
 export default function App() {
 	const [token, setToken] = useState<string | null>(getAuthToken())
 
 	if (!token) {
 		return (
 			<div className='layout'>
+				{VAPT_LAB_MODE && (
+					<div
+						style={{
+							background: '#b91c1c',
+							color: '#fff',
+							padding: '8px 16px',
+							fontWeight: 'bold',
+							textAlign: 'center',
+							letterSpacing: '0.05em'
+						}}
+					>
+						⚠ VAPT LAB MODE ENABLED — intentionally vulnerable — DO NOT use in
+						production
+					</div>
+				)}
 				<AuthPage
 					onAuthenticated={jwt => {
 						setAuthToken(jwt)
@@ -23,6 +41,21 @@ export default function App() {
 
 	return (
 		<>
+			{VAPT_LAB_MODE && (
+				<div
+					style={{
+						background: '#b91c1c',
+						color: '#fff',
+						padding: '8px 16px',
+						fontWeight: 'bold',
+						textAlign: 'center',
+						letterSpacing: '0.05em'
+					}}
+				>
+					⚠ VAPT LAB MODE ENABLED — intentionally vulnerable — DO NOT use in
+					production
+				</div>
+			)}
 			<nav className='top'>
 				<strong>NaaS Admin</strong>
 				<NavLink to='/customers'>Customers</NavLink>

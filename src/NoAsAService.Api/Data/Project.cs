@@ -17,4 +17,7 @@ public class Project
 
     public int CustomerId { get; set; }
     public Customer? Customer { get; set; }
+
+    /// <summary>ID of the user who created this project. Used for IDOR ownership check in safe mode.</summary>
+    public int? OwnerUserId { get; set; }
 }

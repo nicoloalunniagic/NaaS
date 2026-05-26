@@ -40,6 +40,7 @@ public class AppDbContext : DbContext
             b.HasKey(p => p.Id);
             b.Property(p => p.Name).IsRequired().HasMaxLength(200);
             b.Property(p => p.Description).HasMaxLength(2000);
+            b.Property(p => p.OwnerUserId).IsRequired(false);
             b.HasOne(p => p.Customer)
                 .WithMany(c => c.Projects)
                 .HasForeignKey(p => p.CustomerId)
