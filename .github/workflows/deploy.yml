@@ -231,6 +231,15 @@ jobs:
             --image "${{ env.IMAGE_URI }}" \
             --output none
 
+      - name: Configure Container App lab mode
+        shell: bash
+        run: |
+          az containerapp update \
+            --name "${{ steps.discover_core.outputs.container_app_name }}" \
+            --resource-group "${{ steps.settings.outputs.effective_resource_group }}" \
+            --set-env-vars "ENABLE_VAPT_LAB_MODE=${{ vars.ENABLE_VAPT_LAB_MODE || 'false' }}" \
+            --output none
+
       - name: Resolve API base URL
         id: resolve
         shell: bash
@@ -327,6 +336,7 @@ jobs:
         working-directory: src/web
         env:
           VITE_API_BASE_URL: ${{ steps.resolve.outputs.api_base_url || '' }}
+          VITE_ENABLE_VAPT_LAB_MODE: ${{ vars.VITE_ENABLE_VAPT_LAB_MODE || 'false' }}
         run: npm run build
 
       - name: Resolve SWA deployment token
@@ -400,4 +410,6 @@ jobs:
             echo "| Static Web App | ${{ steps.discover_swa.outputs.static_web_app_name }} |"
             echo "| URL | ${{ steps.app_url.outputs.static_web_app_url }} |"
             echo "| API URL | ${{ steps.resolve.outputs.api_base_url }} |"
+            echo "| API lab mode | ${{ vars.ENABLE_VAPT_LAB_MODE || 'false' }} |"
+            echo "| Web lab mode | ${{ vars.VITE_ENABLE_VAPT_LAB_MODE || 'false' }} |"
           } >> "$GITHUB_STEP_SUMMARY"
