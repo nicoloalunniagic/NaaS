@@ -59,6 +59,15 @@ param deployStaticWebApp bool = true
 @description('Controls whether Application Insights and the AMPLS private link scope are deployed.')
 param deployAppInsights bool = true
 
+@description('Controls whether Application Gateway WAF is deployed in front of the API.')
+param deployApplicationGatewayWaf bool = false
+
+@description('Enable IP restriction for /docs and /openapi/v1.json at WAF level.')
+param appGatewayRestrictDocsByIp bool = false
+
+@description('Allowed CIDRs for /docs and /openapi/v1.json when restriction is enabled.')
+param appGatewayDocsAllowedCidrs array = []
+
 @description('Administrator login for the PostgreSQL Flexible Server')
 param dbAdministratorLogin string = 'naasadmin'
 
@@ -225,6 +234,19 @@ module containerApp './modules/containerApp.bicep' = {
 
 }
 
+module appGatewayWaf './modules/appGatewayWaf.bicep' = if (deployApplicationGatewayWaf) {
+  name: 'appGatewayWaf'
+  params: {
+    name: '${namePrefix}-agw'
+    location: location
+    tags: tags
+    subnetId: network.outputs.appGatewaySubnetId
+    backendFqdn: containerApp.outputs.fqdn
+    restrictDocsByIp: appGatewayRestrictDocsByIp
+    docsAllowedCidrs: appGatewayDocsAllowedCidrs
+  }
+}
+
 module appInsights './modules/appInsights.bicep' = if (deployAppInsights) {
   name: 'appInsights'
   params: {
@@ -255,6 +277,8 @@ output containerRegistryLoginServer string = containerRegistry.outputs.loginServ
 output managedEnvironmentName string = foundation.outputs.managedEnvironmentName
 output containerAppName string = containerApp.outputs.name
 output containerAppUrl string = containerApp.outputs.url
+output appGatewayName string = deployApplicationGatewayWaf ? appGatewayWaf!.outputs.name : ''
+output appGatewayUrl string = deployApplicationGatewayWaf ? appGatewayWaf!.outputs.url : ''
 
 output storageAccountName string = blobStorage.outputs.storageAccountName
 output blobContainerName string = blobStorage.outputs.blobContainerName

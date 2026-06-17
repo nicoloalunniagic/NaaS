@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "16947068512224923591"
+      "templateHash": "12026001371227544437"
     }
   },
   "parameters": {
@@ -121,6 +121,27 @@
         "description": "Controls whether Application Insights is deployed."
       }
     },
+    "deployApplicationGatewayWaf": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Controls whether Application Gateway WAF is deployed in front of the API."
+      }
+    },
+    "appGatewayRestrictDocsByIp": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable IP restriction for /docs and /openapi/v1.json at WAF level."
+      }
+    },
+    "appGatewayDocsAllowedCidrs": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Allowed CIDRs for /docs and /openapi/v1.json when restriction is enabled."
+      }
+    },
     "dbAdministratorLogin": {
       "type": "string",
       "defaultValue": "naasadmin",
@@ -155,6 +176,29 @@
     }
   },
   "resources": {
+    "appGatewayVnet": {
+      "condition": "[parameters('deployApplicationGatewayWaf')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}-agw-vnet', parameters('namePrefix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.20.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "appgw-subnet",
+            "properties": {
+              "addressPrefix": "10.20.0.0/24"
+            }
+          }
+        ]
+      }
+    },
     "logAnalyticsWorkspace": {
       "type": "Microsoft.OperationalInsights/workspaces",
       "apiVersion": "2023-09-01",
@@ -1086,6 +1130,394 @@
         "userAssignedIdentity"
       ]
     },
+    "appGatewayWaf": {
+      "condition": "[parameters('deployApplicationGatewayWaf')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "appGatewayWaf",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[format('{0}-agw', parameters('namePrefix'))]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "subnetId": {
+            "value": "[reference('appGatewayVnet').subnets[0].id]"
+          },
+          "backendFqdn": {
+            "value": "[reference('containerApp').outputs.fqdn.value]"
+          },
+          "restrictDocsByIp": {
+            "value": "[parameters('appGatewayRestrictDocsByIp')]"
+          },
+          "docsAllowedCidrs": {
+            "value": "[parameters('appGatewayDocsAllowedCidrs')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.43.8.12551",
+              "templateHash": "4893348397784925465"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {}
+            },
+            "subnetId": {
+              "type": "string"
+            },
+            "backendFqdn": {
+              "type": "string"
+            },
+            "docsAllowedCidrs": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Allowed source CIDRs for /docs and /openapi/v1.json access. Empty array blocks docs for everyone."
+              }
+            },
+            "restrictDocsByIp": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable IP restriction on /docs and /openapi/v1.json paths."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2023-09-01",
+              "name": "[format('{0}-pip', parameters('name'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4"
+              }
+            },
+            {
+              "type": "Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies",
+              "apiVersion": "2023-09-01",
+              "name": "[format('{0}-waf', parameters('name'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "policySettings": {
+                  "state": "Enabled",
+                  "mode": "Prevention",
+                  "requestBodyCheck": true,
+                  "fileUploadLimitInMb": 100,
+                  "maxRequestBodySizeInKb": 128
+                },
+                "managedRules": {
+                  "managedRuleSets": [
+                    {
+                      "ruleSetType": "OWASP",
+                      "ruleSetVersion": "3.2"
+                    }
+                  ]
+                },
+                "customRules": [
+                  {
+                    "name": "block-sqli-signatures",
+                    "priority": 10,
+                    "ruleType": "MatchRule",
+                    "action": "Block",
+                    "state": "Enabled",
+                    "matchConditions": [
+                      {
+                        "matchVariables": [
+                          {
+                            "variableName": "QueryString"
+                          },
+                          {
+                            "variableName": "RequestUri"
+                          }
+                        ],
+                        "operator": "Contains",
+                        "negationConditon": false,
+                        "matchValues": [
+                          " or 1=1",
+                          "union select",
+                          "pg_sleep(",
+                          "information_schema"
+                        ],
+                        "transforms": [
+                          "Lowercase",
+                          "UrlDecode"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "block-xss-signatures",
+                    "priority": 20,
+                    "ruleType": "MatchRule",
+                    "action": "Block",
+                    "state": "Enabled",
+                    "matchConditions": [
+                      {
+                        "matchVariables": [
+                          {
+                            "variableName": "QueryString"
+                          },
+                          {
+                            "variableName": "RequestUri"
+                          }
+                        ],
+                        "operator": "Contains",
+                        "negationConditon": false,
+                        "matchValues": [
+                          "<script",
+                          "onerror=",
+                          "onload=",
+                          "javascript:"
+                        ],
+                        "transforms": [
+                          "Lowercase",
+                          "UrlDecode"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "block-docs-from-non-allowlist",
+                    "priority": 30,
+                    "ruleType": "MatchRule",
+                    "action": "Block",
+                    "state": "[if(parameters('restrictDocsByIp'), 'Enabled', 'Disabled')]",
+                    "matchConditions": "[concat(createArray(createObject('matchVariables', createArray(createObject('variableName', 'RequestUri')), 'operator', 'Regex', 'negationCondition', false(), 'matchValues', createArray('^/(docs|openapi/v1\\.json)(/.*)?$'), 'transforms', createArray('Lowercase'))), if(empty(parameters('docsAllowedCidrs')), createArray(), createArray(createObject('matchVariables', createArray(createObject('variableName', 'RemoteAddr')), 'operator', 'IPMatch', 'negationCondition', true(), 'matchValues', parameters('docsAllowedCidrs'), 'transforms', createArray()))))]"
+                  },
+                  {
+                    "name": "global-rate-limit",
+                    "priority": 40,
+                    "ruleType": "RateLimitRule",
+                    "action": "Block",
+                    "state": "Enabled",
+                    "rateLimitDuration": "OneMin",
+                    "rateLimitThreshold": 300,
+                    "matchConditions": [
+                      {
+                        "matchVariables": [
+                          {
+                            "variableName": "RequestUri"
+                          }
+                        ],
+                        "operator": "Contains",
+                        "negationConditon": false,
+                        "matchValues": [
+                          "/"
+                        ],
+                        "transforms": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/applicationGateways",
+              "apiVersion": "2023-09-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "WAF_v2",
+                  "tier": "WAF_v2"
+                },
+                "autoscaleConfiguration": {
+                  "minCapacity": 1,
+                  "maxCapacity": 3
+                },
+                "gatewayIPConfigurations": [
+                  {
+                    "name": "appGatewayIpConfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[parameters('subnetId')]"
+                      }
+                    }
+                  }
+                ],
+                "frontendIPConfigurations": [
+                  {
+                    "name": "appGatewayFrontendIp",
+                    "properties": {
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-pip', parameters('name')))]"
+                      }
+                    }
+                  }
+                ],
+                "frontendPorts": [
+                  {
+                    "name": "httpPort",
+                    "properties": {
+                      "port": 80
+                    }
+                  }
+                ],
+                "backendAddressPools": [
+                  {
+                    "name": "apiBackendPool",
+                    "properties": {
+                      "backendAddresses": [
+                        {
+                          "fqdn": "[parameters('backendFqdn')]"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "backendHttpSettingsCollection": [
+                  {
+                    "name": "apiHttpSettings",
+                    "properties": {
+                      "port": 443,
+                      "protocol": "Https",
+                      "requestTimeout": 30,
+                      "pickHostNameFromBackendAddress": false,
+                      "hostName": "[parameters('backendFqdn')]",
+                      "probeEnabled": true,
+                      "probe": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/probes', parameters('name'), 'apiProbe')]"
+                      }
+                    }
+                  }
+                ],
+                "httpListeners": [
+                  {
+                    "name": "httpListener",
+                    "properties": {
+                      "frontendIPConfiguration": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', parameters('name'), 'appGatewayFrontendIp')]"
+                      },
+                      "frontendPort": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', parameters('name'), 'httpPort')]"
+                      },
+                      "protocol": "Http"
+                    }
+                  }
+                ],
+                "requestRoutingRules": [
+                  {
+                    "name": "apiRule",
+                    "properties": {
+                      "ruleType": "Basic",
+                      "priority": 100,
+                      "httpListener": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', parameters('name'), 'httpListener')]"
+                      },
+                      "backendAddressPool": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', parameters('name'), 'apiBackendPool')]"
+                      },
+                      "backendHttpSettings": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', parameters('name'), 'apiHttpSettings')]"
+                      },
+                      "rewriteRuleSet": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/rewriteRuleSets', parameters('name'), 'securityHeaderRewrite')]"
+                      }
+                    }
+                  }
+                ],
+                "rewriteRuleSets": [
+                  {
+                    "name": "securityHeaderRewrite",
+                    "properties": {
+                      "rewriteRules": [
+                        {
+                          "name": "removeServerHeader",
+                          "ruleSequence": 10,
+                          "conditions": [],
+                          "actionSet": {
+                            "responseHeaderConfigurations": [
+                              {
+                                "headerName": "Server",
+                                "headerValue": ""
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "probes": [
+                  {
+                    "name": "apiProbe",
+                    "properties": {
+                      "protocol": "Https",
+                      "path": "/",
+                      "interval": 30,
+                      "timeout": 30,
+                      "unhealthyThreshold": 3,
+                      "host": "[parameters('backendFqdn')]",
+                      "pickHostNameFromBackendHttpSettings": false,
+                      "match": {
+                        "statusCodes": [
+                          "200-399"
+                        ]
+                      }
+                    }
+                  }
+                ],
+                "firewallPolicy": {
+                  "id": "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', format('{0}-waf', parameters('name')))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-pip', parameters('name')))]",
+                "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', format('{0}-waf', parameters('name')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "publicIpAddress": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', format('{0}-pip', parameters('name'))), '2023-09-01').ipAddress]"
+            },
+            "url": {
+              "type": "string",
+              "value": "[format('http://{0}', reference(resourceId('Microsoft.Network/publicIPAddresses', format('{0}-pip', parameters('name'))), '2023-09-01').ipAddress)]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "appGatewayVnet",
+        "containerApp"
+      ]
+    },
     "staticWebApp": {
       "condition": "[parameters('deployStaticWebApp')]",
       "type": "Microsoft.Resources/deployments",
@@ -1315,6 +1747,14 @@
     "containerAppUrl": {
       "type": "string",
       "value": "[reference('containerApp').outputs.url.value]"
+    },
+    "appGatewayName": {
+      "type": "string",
+      "value": "[if(parameters('deployApplicationGatewayWaf'), reference('appGatewayWaf').outputs.name.value, '')]"
+    },
+    "appGatewayUrl": {
+      "type": "string",
+      "value": "[if(parameters('deployApplicationGatewayWaf'), reference('appGatewayWaf').outputs.url.value, '')]"
     },
     "storageAccountName": {
       "type": "string",

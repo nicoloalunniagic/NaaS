@@ -59,6 +59,15 @@ param deployStaticWebApp bool = true
 @description('Controls whether Application Insights is deployed.')
 param deployAppInsights bool = true
 
+@description('Controls whether Application Gateway WAF is deployed in front of the API.')
+param deployApplicationGatewayWaf bool = false
+
+@description('Enable IP restriction for /docs and /openapi/v1.json at WAF level.')
+param appGatewayRestrictDocsByIp bool = false
+
+@description('Allowed CIDRs for /docs and /openapi/v1.json when restriction is enabled.')
+param appGatewayDocsAllowedCidrs array = []
+
 @description('Administrator login for the PostgreSQL Flexible Server')
 param dbAdministratorLogin string = 'naasadmin'
 
@@ -76,6 +85,27 @@ param dbName string = 'naas'
 var tags = {
   app: 'no-as-a-service'
   managedBy: 'bicep'
+}
+
+resource appGatewayVnet 'Microsoft.Network/virtualNetworks@2024-01-01' = if (deployApplicationGatewayWaf) {
+  name: '${namePrefix}-agw-vnet'
+  location: location
+  tags: tags
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        '10.20.0.0/16'
+      ]
+    }
+    subnets: [
+      {
+        name: 'appgw-subnet'
+        properties: {
+          addressPrefix: '10.20.0.0/24'
+        }
+      }
+    ]
+  }
 }
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -207,6 +237,19 @@ module containerApp './modules/containerApp.bicep' = {
 
 }
 
+module appGatewayWaf './modules/appGatewayWaf.bicep' = if (deployApplicationGatewayWaf) {
+  name: 'appGatewayWaf'
+  params: {
+    name: '${namePrefix}-agw'
+    location: location
+    tags: tags
+    subnetId: appGatewayVnet!.properties.subnets[0].id
+    backendFqdn: containerApp.outputs.fqdn
+    restrictDocsByIp: appGatewayRestrictDocsByIp
+    docsAllowedCidrs: appGatewayDocsAllowedCidrs
+  }
+}
+
 module staticWebApp './modules/staticWebApp.bicep' = if (deployStaticWebApp) {
   name: 'staticWebApp'
   params: {
@@ -234,6 +277,8 @@ output containerRegistryLoginServer string = containerRegistry.outputs.loginServ
 output managedEnvironmentName string = foundation.outputs.managedEnvironmentName
 output containerAppName string = containerApp.outputs.name
 output containerAppUrl string = containerApp.outputs.url
+output appGatewayName string = deployApplicationGatewayWaf ? appGatewayWaf!.outputs.name : ''
+output appGatewayUrl string = deployApplicationGatewayWaf ? appGatewayWaf!.outputs.url : ''
 
 output storageAccountName string = blobStorage.outputs.storageAccountName
 output blobContainerName string = blobStorage.outputs.blobContainerName

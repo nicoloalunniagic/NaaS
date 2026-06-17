@@ -16,6 +16,7 @@ var firewallSubnetPrefix = '10.0.1.0/26'
 var caeSubnetPrefix      = '10.1.0.0/23'
 var peSubnetPrefix       = '10.1.2.0/24'
 var postgresSubnetPrefix = '10.1.3.0/24'
+var appGatewaySubnetPrefix = '10.1.4.0/24'
 
 // ── Hub VNet ──────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,13 @@ resource spokeVnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
               }
             }
           ]
+        }
+      }
+      {
+        // Index 3 — dedicated subnet for Application Gateway WAF v2
+        name: 'appgw-subnet'
+        properties: {
+          addressPrefix: appGatewaySubnetPrefix
         }
       }
     ]
@@ -177,6 +185,7 @@ output spokeVnetId string = spokeVnet.id
 output caeInfraSubnetId string = spokeVnet.properties.subnets[0].id
 output peSubnetId       string = spokeVnet.properties.subnets[1].id
 output postgresSubnetId string = spokeVnet.properties.subnets[2].id
+output appGatewaySubnetId string = spokeVnet.properties.subnets[3].id
 
 // DNS zone IDs consumed by each module's private endpoint DNS zone group
 output acrDnsZoneId      string = dnsZones[0].id
