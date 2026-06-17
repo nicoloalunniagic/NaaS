@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "12026001371227544437"
+      "templateHash": "8646962282303533991"
     }
   },
   "parameters": {
@@ -1170,7 +1170,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "4893348397784925465"
+              "templateHash": "17798969323456206199"
             }
           },
           "parameters": {
@@ -1311,7 +1311,7 @@
                     "ruleType": "MatchRule",
                     "action": "Block",
                     "state": "[if(parameters('restrictDocsByIp'), 'Enabled', 'Disabled')]",
-                    "matchConditions": "[concat(createArray(createObject('matchVariables', createArray(createObject('variableName', 'RequestUri')), 'operator', 'Regex', 'negationCondition', false(), 'matchValues', createArray('^/(docs|openapi/v1\\.json)(/.*)?$'), 'transforms', createArray('Lowercase'))), if(empty(parameters('docsAllowedCidrs')), createArray(), createArray(createObject('matchVariables', createArray(createObject('variableName', 'RemoteAddr')), 'operator', 'IPMatch', 'negationCondition', true(), 'matchValues', parameters('docsAllowedCidrs'), 'transforms', createArray()))))]"
+                    "matchConditions": "[concat(createArray(createObject('matchVariables', createArray(createObject('variableName', 'RequestUri')), 'operator', 'Regex', 'negationConditon', false(), 'matchValues', createArray('^/(docs|openapi/v1\\.json)(/.*)?$'), 'transforms', createArray('Lowercase'))), if(empty(parameters('docsAllowedCidrs')), createArray(), createArray(createObject('matchVariables', createArray(createObject('variableName', 'RemoteAddr')), 'operator', 'IPMatch', 'negationConditon', true(), 'matchValues', parameters('docsAllowedCidrs'), 'transforms', createArray()))))]"
                   },
                   {
                     "name": "global-rate-limit",

@@ -121,7 +121,7 @@ resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPo
                 }
               ]
               operator: 'Regex'
-              negationCondition: false
+              negationConditon: false
               matchValues: [
                 '^/(docs|openapi/v1\\.json)(/.*)?$'
               ]
@@ -140,7 +140,7 @@ resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPo
                     }
                   ]
                   operator: 'IPMatch'
-                  negationCondition: true
+                  negationConditon: true
                   matchValues: docsAllowedCidrs
                   transforms: []
                 }
