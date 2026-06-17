@@ -155,6 +155,15 @@ resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPo
         state: 'Enabled'
         rateLimitDuration: 'OneMin'
         rateLimitThreshold: 300
+        groupByUserSession: [
+          {
+            groupByVariables: [
+              {
+                variableName: 'ClientAddr'
+              }
+            ]
+          }
+        ]
         matchConditions: [
           {
             matchVariables: [

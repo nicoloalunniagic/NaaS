@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "8646962282303533991"
+      "templateHash": "888993122260356611"
     }
   },
   "parameters": {
@@ -1170,7 +1170,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "17798969323456206199"
+              "templateHash": "11110169516162807491"
             }
           },
           "parameters": {
@@ -1321,6 +1321,15 @@
                     "state": "Enabled",
                     "rateLimitDuration": "OneMin",
                     "rateLimitThreshold": 300,
+                    "groupByUserSession": [
+                      {
+                        "groupByVariables": [
+                          {
+                            "variableName": "ClientAddr"
+                          }
+                        ]
+                      }
+                    ],
                     "matchConditions": [
                       {
                         "matchVariables": [
