@@ -7,6 +7,7 @@ locals {
   cae_subnet_prefix      = "10.1.0.0/23"
   pe_subnet_prefix       = "10.1.2.0/24"
   postgres_subnet_prefix = "10.1.3.0/24"
+  appgw_subnet_prefix    = "10.1.4.0/24"
 
   # Private DNS zones shared across ACR, Storage, Key Vault, and Azure Monitor.
   # Keys are stable short identifiers used to reference zone IDs elsewhere in
@@ -98,6 +99,14 @@ resource "azurerm_subnet" "spoke_postgres" {
       actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
     }
   }
+}
+
+# Application Gateway WAF dedicated subnet.
+resource "azurerm_subnet" "spoke_appgw" {
+  name                 = "appgw-subnet"
+  resource_group_name  = data.azurerm_resource_group.target.name
+  virtual_network_name = azurerm_virtual_network.spoke.name
+  address_prefixes     = [local.appgw_subnet_prefix]
 }
 
 # ── VNet Peering ──────────────────────────────────────────────────────────────

@@ -124,3 +124,25 @@ output "postgres_subnet_id" {
   value       = azurerm_subnet.spoke_postgres.id
   description = "PostgreSQL delegated subnet resource ID (spoke)."
 }
+
+output "app_gateway_subnet_id" {
+  value       = azurerm_subnet.spoke_appgw.id
+  description = "Application Gateway subnet resource ID (spoke)."
+}
+
+# ── Application Gateway WAF ───────────────────────────────────────────────────
+
+output "app_gateway_name" {
+  value       = azurerm_application_gateway.waf.name
+  description = "Application Gateway WAF name."
+}
+
+output "app_gateway_public_ip" {
+  value       = azurerm_public_ip.appgw.ip_address
+  description = "Application Gateway public IP address."
+}
+
+output "app_gateway_url" {
+  value       = "http://${azurerm_public_ip.appgw.ip_address}"
+  description = "Application Gateway URL."
+}

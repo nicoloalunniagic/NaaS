@@ -89,3 +89,18 @@ output "app_insights_id" {
   value       = try(azurerm_application_insights.app[0].id, null)
   description = "Optional Application Insights ID."
 }
+
+output "app_gateway_name" {
+  value       = azurerm_application_gateway.waf.name
+  description = "Application Gateway WAF name."
+}
+
+output "app_gateway_public_ip" {
+  value       = azurerm_public_ip.appgw.ip_address
+  description = "Application Gateway public IP address."
+}
+
+output "app_gateway_url" {
+  value       = "http://${azurerm_public_ip.appgw.ip_address}"
+  description = "Application Gateway URL."
+}
