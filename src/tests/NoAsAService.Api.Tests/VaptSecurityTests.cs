@@ -48,7 +48,7 @@ public sealed class VaptSecurityTests
         var password = "DevPassword123456";
 
         var reg = await client.PostAsJsonAsync("/auth/register", new { username, password });
-        
+
         // If conflict (user already exists), skip to login
         if (reg.StatusCode != HttpStatusCode.Created && reg.StatusCode != HttpStatusCode.Conflict)
             Assert.Equal(HttpStatusCode.Created, reg.StatusCode);
