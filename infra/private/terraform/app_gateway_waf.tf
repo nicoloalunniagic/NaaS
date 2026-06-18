@@ -110,6 +110,8 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
   }
 
   # Docs IP restriction (optional)
+  # NOTE: Disabled in private topology. Enable by setting var.app_gateway_restrict_docs_by_ip = true
+  # and providing CIDR ranges in var.app_gateway_docs_allowed_cidrs.
   custom_rules {
     name      = "BlockDocsFromNonAllowlist"
     priority  = 30
@@ -129,13 +131,16 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
       transforms = ["Lowercase"]
     }
 
-    match_conditions {
-      match_variables {
-        variable_name = "RemoteAddr"
+    dynamic "match_conditions" {
+      for_each = length(var.app_gateway_docs_allowed_cidrs) > 0 ? [1] : []
+      content {
+        match_variables {
+          variable_name = "RemoteAddr"
+        }
+        operator           = "IPMatch"
+        negation_condition = true
+        match_values       = var.app_gateway_docs_allowed_cidrs
       }
-      operator           = "IPMatch"
-      negation_condition = true
-      match_values       = var.app_gateway_docs_allowed_cidrs
     }
   }
 
