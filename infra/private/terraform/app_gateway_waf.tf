@@ -201,7 +201,7 @@ resource "azurerm_application_gateway" "waf" {
 
   backend_address_pool {
     name  = "backend-pool"
-    fqdns = [azurerm_container_app.api.latest_revision_fqdn]
+    fqdns = [azurerm_container_app.api.ingress[0].fqdn]
   }
 
   backend_http_settings {
@@ -217,7 +217,7 @@ resource "azurerm_application_gateway" "waf" {
 
   probe {
     name                = "backend-probe"
-    host                = azurerm_container_app.api.latest_revision_fqdn
+    host                = azurerm_container_app.api.ingress[0].fqdn
     protocol            = "Https"
     path                = "/"
     interval            = 30
