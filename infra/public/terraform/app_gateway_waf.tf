@@ -192,9 +192,8 @@ resource "azurerm_application_gateway" "waf" {
   tags                = local.tags
 
   sku {
-    name     = "WAF_v2"
-    tier     = "WAF_v2"
-    capacity = 1
+    name = "WAF_v2"
+    tier = "WAF_v2"
   }
 
   autoscale_configuration {
