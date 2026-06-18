@@ -677,10 +677,21 @@ projects.MapPost("", async (Project input, AppDbContext db, HttpContext httpCont
 })
 .WithName("CreateProject");
 
-projects.MapPut("/{id:int}", async (int id, Project input, AppDbContext db) =>
+projects.MapPut("/{id:int}", async (int id, Project input, AppDbContext db, HttpContext httpContext) =>
 {
     var project = await db.Projects.FindAsync(id);
     if (project is null) return Results.NotFound();
+
+    if (!vaptLabMode)
+    {
+        // Safe: verify the requesting user owns this project.
+        var currentUserId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (project.OwnerUserId?.ToString() != currentUserId)
+            return Results.Forbid();
+    }
+    // INTENTIONAL VAPT LAB VULNERABILITY (IDOR): in VAPT mode, any authenticated
+    // user can update any project by guessing its ID.
+
     if (string.IsNullOrWhiteSpace(input.Name))
         return Results.BadRequest(new { status = "error", message = "Name is required." });
 
@@ -699,10 +710,21 @@ projects.MapPut("/{id:int}", async (int id, Project input, AppDbContext db) =>
 })
 .WithName("UpdateProject");
 
-projects.MapDelete("/{id:int}", async (int id, AppDbContext db) =>
+projects.MapDelete("/{id:int}", async (int id, AppDbContext db, HttpContext httpContext) =>
 {
     var project = await db.Projects.FindAsync(id);
     if (project is null) return Results.NotFound();
+
+    if (!vaptLabMode)
+    {
+        // Safe: verify the requesting user owns this project.
+        var currentUserId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (project.OwnerUserId?.ToString() != currentUserId)
+            return Results.Forbid();
+    }
+    // INTENTIONAL VAPT LAB VULNERABILITY (IDOR): in VAPT mode, any authenticated
+    // user can delete any project by guessing its ID.
+
     db.Projects.Remove(project);
     await db.SaveChangesAsync();
     return Results.NoContent();
