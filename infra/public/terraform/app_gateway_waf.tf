@@ -50,7 +50,7 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
 
   # SQL Injection blocking
   custom_rules {
-    name      = "block-sqli-signatures"
+    name      = "BlockSqliSignatures"
     priority  = 10
     action    = "Block"
     rule_type = "MatchRule"
@@ -89,7 +89,7 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
 
   # XSS blocking
   custom_rules {
-    name      = "block-xss-signatures"
+    name      = "BlockXssSignatures"
     priority  = 20
     action    = "Block"
     rule_type = "MatchRule"
@@ -128,7 +128,7 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
 
   # Docs IP restriction (optional)
   custom_rules {
-    name      = "block-docs-from-non-allowlist"
+    name      = "BlockDocsFromNonAllowlist"
     priority  = 30
     action    = "Block"
     rule_type = "MatchRule"
@@ -158,7 +158,7 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
 
   # Rate limiting
   custom_rules {
-    name                 = "global-rate-limit"
+    name                 = "GlobalRateLimit"
     priority             = 40
     action               = "Block"
     rule_type            = "RateLimitRule"
