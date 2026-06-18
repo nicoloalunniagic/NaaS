@@ -240,8 +240,6 @@ resource "azurerm_application_gateway" "waf" {
     match {
       status_code = ["200-399"]
     }
-
-    pick_host_name_from_backend_http_settings = true
   }
 
   http_listener {
