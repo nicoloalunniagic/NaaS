@@ -130,8 +130,9 @@ else if (!string.IsNullOrWhiteSpace(storageAccountName))
 var databaseConnectionString = builder.Configuration["DATABASE_CONNECTION_STRING"];
 if (builder.Environment.IsEnvironment("Testing"))
 {
+    var inMemoryDbName = builder.Configuration["ConnectionStrings:InMemoryDbName"] ?? "naas-testing";
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseInMemoryDatabase("naas-testing"));
+        options.UseInMemoryDatabase(inMemoryDbName));
 }
 else if (!string.IsNullOrWhiteSpace(databaseConnectionString))
 {

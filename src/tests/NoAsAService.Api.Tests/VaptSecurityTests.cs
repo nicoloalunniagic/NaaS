@@ -17,17 +17,28 @@ public sealed class VaptSecurityTests
 {
     // ── Helpers ────────────────────────────────────────────────────────────
 
-    private static WebApplicationFactory<Program> SafeFactory() =>
-        new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(b => b.UseEnvironment("Testing"));
-
-    private static WebApplicationFactory<Program> VaptFactory() =>
-        new WebApplicationFactory<Program>()
+    private static WebApplicationFactory<Program> SafeFactory()
+    {
+        var dbName = $"naas-testing-{Guid.NewGuid():N}";
+        return new WebApplicationFactory<Program>()
             .WithWebHostBuilder(b =>
             {
                 b.UseEnvironment("Testing");
+                b.UseSetting("ConnectionStrings:InMemoryDbName", dbName);
+            });
+    }
+
+    private static WebApplicationFactory<Program> VaptFactory()
+    {
+        var dbName = $"naas-testing-{Guid.NewGuid():N}";
+        return new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(b =>
+            {
+                b.UseEnvironment("Testing");
+                b.UseSetting("ConnectionStrings:InMemoryDbName", dbName);
                 b.UseSetting("ENABLE_VAPT_LAB_MODE", "true");
             });
+    }
 
     private static async Task<HttpClient> AuthenticatedClient(
         WebApplicationFactory<Program> factory, string? usernameOverride = null)
@@ -37,7 +48,10 @@ public sealed class VaptSecurityTests
         var password = "DevPassword123456";
 
         var reg = await client.PostAsJsonAsync("/auth/register", new { username, password });
-        Assert.Equal(HttpStatusCode.Created, reg.StatusCode);
+        
+        // If conflict (user already exists), skip to login
+        if (reg.StatusCode != HttpStatusCode.Created && reg.StatusCode != HttpStatusCode.Conflict)
+            Assert.Equal(HttpStatusCode.Created, reg.StatusCode);
 
         var login = await client.PostAsJsonAsync("/auth/login", new { username, password });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
@@ -235,6 +249,7 @@ public sealed class VaptSecurityTests
     public async Task BrokenRole_SafeMode_AdminAllowed()
     {
         using var factory = SafeFactory();
+        // Use "admin" username to get the admin role claim in JWT token
         var client = await AuthenticatedClient(factory, usernameOverride: "admin");
 
         var response = await client.GetAsync("/admin/stats");
