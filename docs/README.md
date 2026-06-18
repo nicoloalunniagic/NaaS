@@ -16,6 +16,7 @@ Include API base, upload file su Blob Storage e workflow locale con Azurite.
 2. [Quickstart Docker](./01-quickstart.md)
 3. [Riferimento API](./02-api-reference.md)
 4. [Troubleshooting](./03-troubleshooting.md)
+5. [VAPT Lab Mode](./04-vapt-lab-mode.md)
 
 ## Mirror inglese
 
@@ -24,6 +25,7 @@ Include API base, upload file su Blob Storage e workflow locale con Azurite.
 3. [Docker quickstart](./en/01-quickstart.md)
 4. [API reference](./en/02-api-reference.md)
 5. [Troubleshooting](./en/03-troubleshooting.md)
+6. [VAPT Lab Mode](./en/04-vapt-lab-mode.md)
 
 ## A chi serve
 

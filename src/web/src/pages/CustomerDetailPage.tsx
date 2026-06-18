@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, type Customer, type Project, type ProjectInput } from '../api'
-
-// VAPT Lab Mode — set VITE_ENABLE_VAPT_LAB_MODE=true in .env.local to enable.
-const VAPT_LAB_MODE = import.meta.env.VITE_ENABLE_VAPT_LAB_MODE === 'true'
+import {
+	api,
+	type Customer,
+	type Project,
+	type ProjectInput,
+	VAPT_LAB_MODE
+} from '../api'
 
 export default function CustomerDetailPage() {
 	const { id } = useParams()

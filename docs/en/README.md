@@ -11,6 +11,7 @@ It covers core API behavior, file upload to Blob Storage, and local Azurite-base
 2. [Docker Quickstart](./01-quickstart.md)
 3. [API Reference](./02-api-reference.md)
 4. [Troubleshooting](./03-troubleshooting.md)
+5. [VAPT Lab Mode](./04-vapt-lab-mode.md)
 
 ## Target Audience
 

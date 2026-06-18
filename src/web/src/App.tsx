@@ -3,10 +3,7 @@ import { NavLink, Route, Routes, Navigate } from 'react-router-dom'
 import CustomersPage from './pages/CustomersPage'
 import CustomerDetailPage from './pages/CustomerDetailPage'
 import ProjectsPage from './pages/ProjectsPage'
-import { api, getAuthToken, setAuthToken } from './api'
-
-// VAPT Lab Mode flag — set VITE_ENABLE_VAPT_LAB_MODE=true in .env.local to enable.
-const VAPT_LAB_MODE = import.meta.env.VITE_ENABLE_VAPT_LAB_MODE === 'true'
+import { api, getAuthToken, setAuthToken, VAPT_LAB_MODE } from './api'
 
 export default function App() {
 	const [token, setToken] = useState<string | null>(getAuthToken())

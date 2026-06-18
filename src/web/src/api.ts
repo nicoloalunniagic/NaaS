@@ -2,6 +2,10 @@
 // Empty string means same-origin (used in dev via Vite proxy and in prod
 // when SWA's `routes` proxy /api -> Container Apps).
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
+/** Set VITE_ENABLE_VAPT_LAB_MODE=true in .env.local to enable VAPT Lab Mode. */
+export const VAPT_LAB_MODE =
+	import.meta.env.VITE_ENABLE_VAPT_LAB_MODE === 'true'
 const TOKEN_STORAGE_KEY = 'naas_auth_token'
 
 let authToken: string | null = localStorage.getItem(TOKEN_STORAGE_KEY)
